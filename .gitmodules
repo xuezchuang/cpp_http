@@ -1,0 +1,3 @@
+[submodule "src/webui-login-drogon/layuimini"]
+	path = src/webui-login-drogon/layuimini
+	url = https://github.com/xuezchuang/layuimini.git

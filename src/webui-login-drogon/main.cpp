@@ -22,28 +22,76 @@ static User* findByToken(const std::string& t)
 	return nullptr;
 }
 
-// ---- 从请求中获取用户（先 Header: X-Token；再 JSON: user/pass 或 token）----
+#include <drogon/utils/Utilities.h>   // base64Decode
+
 static User* getUserFromReq(const HttpRequestPtr& req)
 {
-	auto tok = req->getHeader("x-token");
-	if (!tok.empty()) if (auto* u = findByToken(tok)) return u;
+	// 1) X-Token
+	if (auto tok = req->getHeader("x-token"); !tok.empty())
+	{
+		if (auto* u = findByToken(tok)) return u;
+	}
 
+	// 2) Authorization: Basic base64(user:pass)
+	if (auto auth = req->getHeader("authorization"); !auth.empty())
+	{
+		// 兼容大小写：getHeader 已大小写不敏感，这里只判断前缀
+		const std::string prefix = "Basic ";
+		if (auth.size() > prefix.size() &&
+			strncasecmp(auth.data(), prefix.c_str(), prefix.size()) == 0)
+		{
+			auto decoded = drogon::utils::base64Decode(auth.substr(prefix.size()));
+			auto pos = decoded.find(':');
+			if (pos != std::string::npos)
+			{
+				auto name = decoded.substr(0, pos);
+				auto pass = decoded.substr(pos + 1);
+				if (auto* u = findByNamePass(name, pass)) return u;
+			}
+		}
+	}
+
+	// 3) query/form 参数（GET ?user=..&pass=.. 或 POST x-www-form-urlencoded）
+	{
+		auto name = req->getParameter("user");
+		auto pass = req->getParameter("pass");
+		auto tok = req->getParameter("token");
+		if (!tok.empty())
+		{
+			if (auto* u = findByToken(tok)) return u;
+		}
+		if (!name.empty() && !pass.empty())
+		{
+			if (auto* u = findByNamePass(name, pass)) return u;
+		}
+	}
+
+	// 4) JSON body
 	if (auto json = req->getJsonObject())
 	{
-		auto n = (*json)["user"].asString();
-		auto p = (*json)["pass"].asString();
-		if (!n.empty() && !p.empty()) if (auto* u = findByNamePass(n, p)) return u;
-		auto t2 = (*json)["token"].asString();
-		if (!t2.empty()) if (auto* u = findByToken(t2)) return u;
+		auto name = (*json)["user"].asString();
+		auto pass = (*json)["pass"].asString();
+		auto tok = (*json)["token"].asString();
+		if (!tok.empty())
+		{
+			if (auto* u = findByToken(tok)) return u;
+		}
+		if (!name.empty() && !pass.empty())
+		{
+			if (auto* u = findByNamePass(name, pass)) return u;
+		}
 	}
+
 	return nullptr;
 }
+
 
 int main()
 {
 	app().addListener("0.0.0.0", 35812);
-	// 运行目录在 build/，指回源码里的 layuimini
-	app().setDocumentRoot("../src/layuimini");
+	
+	app().setDocumentRoot("layuimini");
+	//app().setDocumentRoot("web_root");
 	app().setLogLevel(trantor::Logger::kInfo);
 
 	app().registerHandler(
@@ -84,6 +132,51 @@ int main()
 			callback(HttpResponse::newHttpJsonResponse(out));
 		},
 		{ Get, Post }
+	);
+
+	// 允许未登录访问：/api/init.json -> 从 layuimini/api/init.json 返回文件
+	app().registerHandler(
+		"/api/init.json",
+		[](const HttpRequestPtr&, std::function<void(const HttpResponsePtr&)> &&cb){
+			auto resp = HttpResponse::newFileResponse("layuimini/api/init.json");
+			resp->setContentTypeCode(CT_APPLICATION_JSON);
+			cb(resp);
+		},
+		{Get}
+	);
+
+	// 需要鉴权的接口：/api/data
+	app().registerHandler(
+		"/api/data",
+		[](const HttpRequestPtr& req, std::function<void(const HttpResponsePtr&)> &&cb){
+			if (!getUserFromReq(req)) {
+				auto r = HttpResponse::newHttpResponse();
+				r->setStatusCode(k403Forbidden);
+				r->setBody("Denied\n");
+				cb(r);
+				return;
+			}
+			Json::Value j; j["text"]="Hello!"; j["data"]="somedata";
+			cb(HttpResponse::newHttpJsonResponse(j));
+		},
+		{Get, Post}
+	);
+
+	// 兜底规则：未登录访问 /api/* 其他路径，一律 403（保持和 mongoose 一致）
+	app().registerHandler(
+		R"(^/api/.*$)",
+		[](const HttpRequestPtr& req, std::function<void(const HttpResponsePtr&)> &&cb){
+			if (!getUserFromReq(req)) {
+				auto r = HttpResponse::newHttpResponse();
+				r->setStatusCode(k403Forbidden);
+				r->setBody("Denied\n");
+				cb(r);
+				return;
+			}
+			// 已登录但没有更具体路由，返回 404
+			cb(HttpResponse::newNotFoundResponse());
+		},
+		{Get, Post}
 	);
 
 

@@ -6,19 +6,15 @@
       "configurationType": "Debug",
       "cmakeExecutable": "cmake",
       "inheritEnvironments": [ "linux_x64" ],
-
-      "remoteMachineName": "1377692426;snowsome.com (username=snow, port=12340, authentication=Password)",
-
+      "remoteMachineName": "1421305035;snowsome.com (username=root, port=12340, authentication=PrivateKey)",
       "remoteCopySources": true,
       "remoteCopySourcesMethod": "rsync",
       "rsyncCommandArgs": "-t --delete",
       "remoteCopySourcesExclusionList": [ ".git", ".vs", "out", "build", "install" ],
-
       "remoteCMakeListsRoot": "$HOME/${projectDirName}/src",
       "remoteBuildRoot": "$HOME/${projectDirName}/build/${name}",
       "remoteInstallRoot": "$HOME/${projectDirName}/install/${name}",
-
-      "cmakeCommandArgs": "-DCMAKE_PREFIX_PATH=/home/snow/drogon/install/Linux-GCC-Debug",
+      "cmakeCommandArgs": "-DCMAKE_PREFIX_PATH=/root/drogon/install/Linux-GCC-Debug",
       "buildCommandArgs": "",
       "ctestCommandArgs": ""
     },
@@ -28,19 +24,15 @@
       "configurationType": "Release",
       "cmakeExecutable": "cmake",
       "inheritEnvironments": [ "linux_x64" ],
-
-      "remoteMachineName": "1377692426;snowsome.com (username=snow, port=12340, authentication=Password)",
-
+      "remoteMachineName": "1421305035;snowsome.com (username=root, port=12340, authentication=PrivateKey)",
       "remoteCopySources": true,
       "remoteCopySourcesMethod": "rsync",
       "rsyncCommandArgs": "-t --delete",
       "remoteCopySourcesExclusionList": [ ".git", ".vs", "out", "build", "install" ],
-
       "remoteCMakeListsRoot": "$HOME/${projectDirName}/src",
       "remoteBuildRoot": "$HOME/${projectDirName}/build/${name}",
       "remoteInstallRoot": "$HOME/${projectDirName}/install/${name}",
-
-      "cmakeCommandArgs": "-DCMAKE_PREFIX_PATH=/home/snow/drogon/install/Linux-GCC-Release",
+      "cmakeCommandArgs": "-DCMAKE_PREFIX_PATH=/root/drogon/install/Linux-GCC-Release",
       "buildCommandArgs": "",
       "ctestCommandArgs": ""
     }

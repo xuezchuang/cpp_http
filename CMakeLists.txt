@@ -6,3 +6,4 @@ cmake_minimum_required (VERSION 3.10)
 project ("cpp_http")
 
 add_subdirectory(src/webui-login-drogon)
+add_subdirectory(src/netmon-server)

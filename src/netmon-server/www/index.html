@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Netmon 仪表盘</title>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5"></script>
+  <style>
+    body {
+      background-color: #1e1e1e;
+      color: #eee;
+      font-family: sans-serif;
+      padding: 20px;
+    }
+    select, button {
+      margin-right: 10px;
+      padding: 4px 8px;
+    }
+    .controls {
+      margin-bottom: 15px;
+    }
+    .chart {
+      width: 100%;
+      height: 300px;
+      background: #2b2b2b;
+      border: 1px solid #444;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h2>📊 Netmon 仪表盘</h2>
+  <div class="controls">
+    <label>主机：</label>
+    <select id="hostSelect"></select>
+
+    <label>范围：</label>
+    <select id="rangeSelect">
+      <option value="5m">5分钟</option>
+      <option value="1h" selected>1小时</option>
+      <option value="6h">6小时</option>
+      <option value="1d">1天</option>
+      <option value="1w">1周</option>
+    </select>
+
+      <label>单位：</label>
+		<select id="unitSelect">
+		  <option value="KB/s" selected>KB/s</option>
+		  <option value="MB/s">MB/s</option>
+		  <option value="Bytes/s">Bytes/s</option>
+		  <option value="Mbps">Mbps</option>
+		</select>
+
+  
+    <button onclick="shiftTime(-1)">⬅️</button>
+    <button onclick="resetNow()">⟳</button>
+    <button onclick="shiftTime(1)">➡️</button>
+  </div>
+
+  <div id="trafficChart" class="chart"></div>
+
+  <div class="controls">
+    <br/><br/>
+    <label>CPU & 温度时间范围：</label>
+    <select id="rangeSelectStats">
+      <option value="5m">5分钟</option>
+      <option value="1h" selected>1小时</option>
+      <option value="6h">6小时</option>
+      <option value="1d">1天</option>
+      <option value="1w">1周</option>
+    </select>
+    <button onclick="shiftStats(-1)">⬅️</button>
+    <button onclick="resetStats()">⟳</button>
+    <button onclick="shiftStats(1)">➡️</button>
+  </div>
+
+  <p id="statsTimeLabel" style="color: #aaa; margin-bottom: 10px;"></p>
+  <div id="cpuChart" class="chart"></div>
+  <div id="tempChart" class="chart"></div>
+
+  <script>
+  
+	function convertSpeed(bytesPerSecond, unit) {
+	  if (unit === "Bytes/s") return bytesPerSecond;
+	  if (unit === "KB/s") return +(bytesPerSecond / 1024).toFixed(2);
+	  if (unit === "MB/s") return +(bytesPerSecond / 1024 / 1024).toFixed(2);
+	  if (unit === "Mbps") return +(bytesPerSecond * 8 / 1024 / 1024).toFixed(2);
+	  return bytesPerSecond;
+	}
+
+
+
+    const trafficChart = echarts.init(document.getElementById('trafficChart'));
+    const cpuChart = echarts.init(document.getElementById('cpuChart'));
+    const tempChart = echarts.init(document.getElementById('tempChart'));
+    let currentOffset = 0;
+    let statsOffset = 0;
+
+    async function loadHosts() {
+      const res = await fetch('/api/all-hosts');
+      const data = await res.json();
+      const select = document.getElementById('hostSelect');
+      select.innerHTML = '';
+      data.hosts.forEach(d => {
+        const label = `${d.name} (${d.ip})`;
+        const opt = document.createElement('option');
+        opt.value = d.mac;
+        opt.textContent = label;
+        select.appendChild(opt);
+      });
+    }
+
+    async function loadChart() {
+      const host = document.getElementById('hostSelect').value;
+      const range = document.getElementById('rangeSelect').value;
+      if (!host) return;
+
+	  try {
+		const res = await fetch(`/api/traffic-history?mac=${host}&range=${range}&offset=${currentOffset}`);
+		const json = await res.json();
+		const times = json.records.map(r => r.time);
+		const unit = document.getElementById('unitSelect').value;
+		const upload = json.records.map(r => convertSpeed(r.upload, unit));
+		const download = json.records.map(r => convertSpeed(r.download, unit));
+
+		trafficChart.setOption({
+		  tooltip: { trigger: 'axis' },
+		  legend: { data: ['上传', '下载'], textStyle: { color: '#ccc' } },
+		  xAxis: { type: 'category', data: times, axisLabel: { color: '#aaa' } },
+		  yAxis: { type: 'value', name: unit, axisLabel: { color: '#aaa' } },
+		  series: [
+			{ name: '上传', type: 'line', smooth: true, showSymbol: false, data: upload },
+			{ name: '下载', type: 'line', smooth: true, showSymbol: false, data: download }
+		  ]
+		});
+	  } catch (e) {
+		console.error('[🚨 流量图加载失败]', e);
+		alert("流量数据加载失败，可能是网络断开或服务未运行。");
+	  }
+    }
+
+	  async function updateCpuAndTempCharts() {
+		const range = document.getElementById('rangeSelectStats').value;
+	  const offset = statsOffset;
+
+	  try {
+		const [cpuRes, tempRes] = await Promise.all([
+		  fetch(`/api/cpu-history?range=${range}&offset=${offset}`).then(res => res.json()),
+		  fetch(`/api/temp-history?range=${range}&offset=${offset}`).then(res => res.json())
+		]);
+
+		const timeLabel = document.getElementById('statsTimeLabel');
+		const formatTime = ts => {
+		  const date = new Date(ts);
+		  const pad = n => n.toString().padStart(2, '0');
+		  const yyyy = date.getFullYear();
+		  const MM = pad(date.getMonth() + 1);
+		  const dd = pad(date.getDate());
+		  const hh = pad(date.getHours());
+		  const mm = pad(date.getMinutes());
+		  const ss = pad(date.getSeconds());
+		  return `${yyyy}-${MM}-${dd} ${hh}:${mm}:${ss}`;
+		};
+
+		const trueNow = new Date();
+		
+		const defaultRangeMs = 60 * 60 * 1000;
+		const ranges = {
+		  "5m": 5 * 60 * 1000,
+		  "1h": 60 * 60 * 1000,
+		  "6h": 6 * 60 * 60 * 1000,
+		  "1d": 24 * 60 * 60 * 1000,
+		  "1w": 7 * 24 * 60 * 60 * 1000
+		};
+		const rangeMs = ranges[range] || defaultRangeMs;
+		const start = new Date(trueNow.getTime() - rangeMs);
+		
+    // 直接使用后端切好的数据
+    const ts = (cpuRes.timestamps || []).map(s => s.replace('T', ' ')); // 纯显示友好
+    const vals = cpuRes.values || [];
+    const topMap = cpuRes.top_map || {};
+
+    cpuChart.setOption({
+      tooltip: {
+        trigger: 'axis',
+        formatter: function (params) {
+          const time = params[0].axisValue;
+          const cpu = params[0].data;
+          const top = topMap[time] || topMap[time.replace(' ', 'T')] || '无数据';
+          return `${time}<br/>CPU 使用率: ${cpu}%<br/>${Array.isArray(top) ? top.join('<br/>') : top}`;
+        }
+      },
+      legend: { data: ['CPU 使用率'], textStyle: { color: '#ccc' } },
+      xAxis: { type: 'category', data: ts, axisLabel: { color: '#aaa' } },
+      yAxis: { type: 'value', name: '%', axisLabel: { color: '#aaa' } },
+      series: [{ name: 'CPU 使用率', type: 'line', smooth: true, showSymbol: false, data: vals }]
+    });
+
+
+		const tempSeries = Object.keys(tempRes.series).map(name => ({
+		  name,
+		  type: 'line',
+		  smooth: true,
+		  showSymbol: false,
+		  data: tempRes.series[name]
+		}));
+
+		tempChart.setOption({
+		  tooltip: { trigger: 'axis' },
+		  legend: { data: Object.keys(tempRes.series), textStyle: { color: '#ccc' } },
+		  xAxis: { type: 'category', data: tempRes.timestamps, axisLabel: { color: '#aaa' } },
+		  yAxis: { type: 'value', name: '°C', axisLabel: { color: '#aaa' } },
+		  series: tempSeries
+		});
+	  } catch (e) {
+		console.error('CPU/温度图更新失败', e);
+	  }
+	}
+
+
+
+
+
+
+
+
+
+    function shiftTime(direction) {
+      currentOffset += direction;
+      loadChart();
+    }
+    function resetNow() {
+      currentOffset = 0;
+      loadChart();
+    }
+    function shiftStats(direction) {
+      statsOffset += direction;
+      updateCpuAndTempCharts();
+    }
+    function resetStats() {
+      statsOffset = 0;
+      updateCpuAndTempCharts();
+    }
+
+    document.getElementById('unitSelect').addEventListener('change', loadChart);
+
+    document.getElementById('rangeSelect').addEventListener('change', () => {
+      currentOffset = 0;
+      loadChart();
+    });
+    document.getElementById('rangeSelectStats').addEventListener('change', () => {
+      statsOffset = 0;
+      updateCpuAndTempCharts();
+    });
+    document.getElementById('hostSelect').addEventListener('change', () => {
+      currentOffset = 0;
+      loadChart();
+    });
+
+    loadHosts().then(() => {
+      loadChart();
+      updateCpuAndTempCharts();
+    });
+    setInterval(updateCpuAndTempCharts, 60000);
+  </script>
+</body>
+</html>

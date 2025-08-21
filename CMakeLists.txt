@@ -7,3 +7,5 @@ project ("cpp_http")
 
 add_subdirectory(src/webui-login-drogon)
 add_subdirectory(src/netmon-server)
+add_subdirectory(src/wecom)
+add_subdirectory(src/speed_receiver)

@@ -24,7 +24,6 @@ std::unordered_map<std::string, std::vector<TrafficEntry>> traffic_cache;
 
 std::unordered_map<std::string, std::string> name_map = {
 	{"54:92:09:7c:45:74", "Huawei Router"},
-	{"06:3b:62:cf:69:2d", "snowsome"},
 	{"92:b4:59:1d:a4:ff", "snowsome"},
 	{"fe:aa:68:f0:32:7f", "gugu"},
 	{"f2:84:38:a6:fc:33", "yueguang"},
@@ -49,8 +48,8 @@ static std::mutex cache_mutex;
 constexpr int ONLINE_TIMEOUT = 300;  // 秒
 
 // 策略阈值（和你的 Python 对齐）
-static constexpr int GRACE_NO_TRAFFIC_SEC = 30;   // 流量静默宽限
-static constexpr int FAIL_THRESH = 2;    // 连续失败次数阈值（达阈值判离线并推送）
+static constexpr int GRACE_NO_TRAFFIC_SEC = 600;   // 流量静默宽限
+static constexpr int FAIL_THRESH = 6;    // 连续失败次数阈值（达阈值判离线并推送）
 static constexpr int POLL_SEC = 10;   // presence 检测轮询周期（外层循环会用 60s 起线程，这里保持 10s 逻辑）
 static constexpr int ONLINE_EXPIRE_SEC = 600;  // 用于清理在线态（与之前一致）
 
@@ -703,15 +702,66 @@ static std::string ipByName(const std::unordered_map<std::string, std::string>& 
 // 进行一次“存在性复核”：如果 flow_recent 为真，直接认为 present；否则用 arping/ping 试探
 static bool isPresent(const std::string& ip, bool flow_recent)
 {
+	//好像没什么用.IPhone直接拒绝所有
 	if (flow_recent) return true;
 
-	// 优先 arping（更快发现二层），失败就用 ping
-	int rc = std::system((std::string("arping -q -c 1 -w 1 ") + ip + " >/dev/null 2>&1").c_str());
-	if (rc == 0) return true;
+	// ===== 可调参数 =====
+	constexpr int ARPING_COUNT = 3;
+	constexpr int ARPING_DEADLINE_SEC = 2; // 整体截止时间（更快返回）
 
-	rc = std::system((std::string("ping -c 1 -W 1 ") + ip + " >/dev/null 2>&1").c_str());
-	return rc == 0;
+	constexpr int PING_COUNT = 3;
+	constexpr int PING_TIMEOUT_PER_PKT_SEC = 1; // 每包超时
+	constexpr int PING_DEADLINE_SEC = 2;        // 整体截止时间
+
+	// 1) 先试 arping：任意 1 个回应即返回 0
+	{
+		std::ostringstream cmd;
+		// -q 静默；-c 次数；-w 截止时间（秒）
+		cmd << "arping -q -c " << ARPING_COUNT
+			<< " -w " << ARPING_DEADLINE_SEC
+			<< " " << ip << " >/dev/null 2>&1";
+		int rc = std::system(cmd.str().c_str());
+		if (rc == 0) return true;
+		// 非 0：可能是无回应或命令不存在；继续用 ping 兜底
+	}
+
+	// 2) 再试 ping（ICMP）：任意 1 个回应即返回 0
+	{
+		std::ostringstream cmd;
+		// -c 次数；-W 单包超时；-w 总截止时间
+		cmd << "ping -c " << PING_COUNT
+			<< " -W " << PING_TIMEOUT_PER_PKT_SEC
+			<< " -w " << PING_DEADLINE_SEC
+			<< " " << ip << " >/dev/null 2>&1";
+		int rc = std::system(cmd.str().c_str());
+		if (rc == 0) return true;
+	}
+
+	//// 3) TCP SYN 小探测：80/443/53 任一端口有“open/succeeded/refused”即视为活着
+	//// 说明：很多设备会丢 ICMP，但 TCP 栈仍会对 SYN 回 RST（refused）；这也能证明在线。
+	//{
+	//	// 你可以按需调整端口列表
+	//	const int ports[] = { 80, 443, 53 };
+
+	//	// 用 /bin/sh 解析一条复合命令：nc 探测 → grep 关键字
+	//	// openbsd-netcat 输出里常见 "open" / "succeeded"；拒绝时包含 "refused"；
+	//	// 只要不是超时，基本都会命中上述关键词之一。
+	//	std::ostringstream cmd;
+	//	cmd << "sh -c 'nc -z -w 1 " << ip;
+	//	for (int p : ports) cmd << " " << p;
+	//	cmd << " 2>&1 | grep -Ei \"open|succeeded|refused\" >/dev/null'";
+	//	int rc = std::system(cmd.str().c_str());
+	//	if (rc == 0) return true;
+	//}
+
+	{
+		// 这里你可以换成自己的日志系统
+		std::cerr << "[WARN] isPresent: " << ip << " not responding to arping or ping" << std::endl;
+	}
+
+	return false;
 }
+
 
 static long long readCounterFile(const std::string& path)
 {
@@ -752,13 +802,13 @@ static void send_wechat_msg(const std::string& text)
 		auto [result, resp] = client->sendRequest(req, 5.0);
 		if (result != drogon::ReqResult::Ok || !resp || resp->getStatusCode() >= 400)
 		{
-			LOG_WARN << "[presence] send_wechat_msg failed: result=" << static_cast<int>(result)
+			std::cerr  << "[presence] send_wechat_msg failed: result=" << static_cast<int>(result)
 				<< " code=" << (resp ? resp->getStatusCode() : drogon::kUnknown);
 		}
 	}
 	catch (const std::exception& e)
 	{
-		LOG_WARN << "[presence] send_wechat_msg exception: " << e.what();
+		std::cerr  << "[presence] send_wechat_msg exception: " << e.what();
 	}
 }
 
@@ -784,7 +834,7 @@ void loadRecentHistory(int days = 7)
 					std::ifstream ifs(p);
 					if (!ifs)
 					{
-						LOG_WARN << "Failed to open traffic file: " << p.string();
+						std::cerr  << "Failed to open traffic file: " << p.string();
 						continue;
 					}
 					std::string line;
@@ -822,7 +872,7 @@ void loadRecentHistory(int days = 7)
 				std::ifstream ifs(cpu_path);
 				if (!ifs)
 				{
-					LOG_WARN << "Failed to open CPU file: " << cpu_path.string();
+					std::cerr  << "Failed to open CPU file: " << cpu_path.string();
 				}
 				else
 				{
@@ -887,7 +937,7 @@ void loadRecentHistory(int days = 7)
 				std::ifstream ifs(temp_path);
 				if (!ifs)
 				{
-					LOG_WARN << "Failed to open temp file: " << temp_path.string();
+					std::cerr  << "Failed to open temp file: " << temp_path.string();
 				}
 				else
 				{
@@ -950,7 +1000,37 @@ void loadRecentHistory(int days = 7)
 		}
 	}
 
-	LOG_INFO << "Recent history loaded (last " << days << " days). "
+	// ---- 统一排序 ----
+	if(1)
+	{
+		// traffic_cache: 每个 key 的 vector 单独排
+		for (auto& kv : traffic_cache)
+		{
+			auto& vec = kv.second;
+			std::sort(vec.begin(), vec.end(),
+				[](const TrafficEntry& a, const TrafficEntry& b)
+				{
+					 return std::get<0>(a) < std::get<0>(b);
+				});
+		}
+
+		// cpu_cache
+		std::sort(cpu_cache.begin(), cpu_cache.end(),
+			[](const CpuEntry& a, const CpuEntry& b)
+			{
+				return std::get<0>(a) < std::get<0>(b);  // 按 ts
+			});
+
+		// temp_cache
+		std::sort(temp_cache.begin(), temp_cache.end(),
+			[](const auto& a, const auto& b)
+			{
+				return std::get<0>(a) < std::get<0>(b);  // 按 ts
+			});
+	}
+
+
+	std::cerr  << "Recent history loaded (last " << days << " days). "
 		<< "traffic_keys=" << traffic_cache.size()
 		<< " cpu_count=" << cpu_cache.size()
 		<< " temp_count=" << temp_cache.size();
@@ -1330,7 +1410,6 @@ void record_temp_once()
 		// 保持与 Python 语义一致：静默
 	}
 }
-
 
 // ===== 后台线程：固定间隔循环采样 =====
 void start_background_record_thread(int interval_sec)
@@ -1865,6 +1944,7 @@ static void presenceMonitorOnce()
 				offline_since.erase(itOff);
 
 				auto mins_total = std::chrono::duration_cast<std::chrono::minutes>(now_tp - left_tp).count();
+				mins_total += 10;
 				long long hours = mins_total / 60;
 				long long mins = mins_total % 60;
 
@@ -1893,24 +1973,7 @@ static void presenceMonitorOnce()
 
 		if (!ip.empty() && isPresent(ip, flow_recent))
 		{
-			// 复核在线：更新 last_seen，清零失败；如之前在离线计时，推“回家了”
-			last_seen[name] = now_tp;
-			fail_counts[name] = 0;
-
-			auto itOff = offline_since.find(name);
-			if (itOff != offline_since.end())
-			{
-				auto left_tp = itOff->second;
-				offline_since.erase(itOff);
-
-				auto mins_total = std::chrono::duration_cast<std::chrono::minutes>(now_tp - left_tp).count();
-				long long hours = mins_total / 60;
-				long long mins = mins_total % 60;
-
-				std::ostringstream oss;
-				oss << "🏠 " << name << " 回到家了，离开了 " << hours << " 小时 " << mins << " 分钟";
-				send_wechat_msg(oss.str());
-			}
+			continue;
 		}
 		else
 		{
@@ -1920,7 +1983,7 @@ static void presenceMonitorOnce()
 			if (fc >= FAIL_THRESH && offline_since.find(name) == offline_since.end())
 			{
 				offline_since[name] = now_tp;
-				send_wechat_msg(std::string("🚪 ") + name + " 离开了家");
+				send_wechat_msg(std::string("🚪 ") + name + " 10分钟前离开了家");
 			}
 		}
 	}

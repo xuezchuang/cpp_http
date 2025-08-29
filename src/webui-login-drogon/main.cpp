@@ -85,13 +85,43 @@ static User* getUserFromReq(const HttpRequestPtr& req)
 	return nullptr;
 }
 
+static const std::string RELAY_HOST = "https://wecom.snowsome.com";
+static const std::string RELAY_PATH = "/api/relay";
+static const std::string SECRET = "1qnQiwDZxsgJsYKDR4ybtGm0urLYxNBMdXlCMMuovA4";
+// 发送企业微信消息（经你的转发服务）
+static void send_wechat_msg(const std::string& text)
+{
+	try
+	{
+		auto client = drogon::HttpClient::newHttpClient(RELAY_HOST);
+		Json::Value body;
+		body["secret"] = SECRET;
+		body["text"] = text;
+
+		auto req = drogon::HttpRequest::newHttpJsonRequest(body);
+		req->setPath(RELAY_PATH);
+		req->setMethod(drogon::Post);
+
+		// 同步发送，5秒超时
+		auto [result, resp] = client->sendRequest(req, 5.0);
+		if (result != drogon::ReqResult::Ok || !resp || resp->getStatusCode() >= 400)
+		{
+			LOG_WARN << "[presence] send_wechat_msg failed: result=" << static_cast<int>(result)
+				<< " code=" << (resp ? resp->getStatusCode() : drogon::kUnknown);
+		}
+	}
+	catch (const std::exception& e)
+	{
+		LOG_WARN << "[presence] send_wechat_msg exception: " << e.what();
+	}
+}
 
 int main()
 {
 	app().addListener("0.0.0.0", 35812);
 	
-	app().setDocumentRoot("layuimini");
-	//app().setDocumentRoot("web_root");
+	//app().setDocumentRoot("layuimini");
+	app().setDocumentRoot("web_root");
 	app().setLogLevel(trantor::Logger::kInfo);
 
 	app().registerHandler(
@@ -103,6 +133,8 @@ int main()
 			{
 				Json::Value out; out["user"] = u->name; out["token"] = u->token;
 				callback(HttpResponse::newHttpJsonResponse(out));
+
+				send_wechat_msg("test");
 			}
 			else
 			{

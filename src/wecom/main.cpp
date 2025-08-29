@@ -435,7 +435,7 @@ int main()
 		{
 			Json::Value j;
 			if (req->getJsonObject()) j = *req->getJsonObject();
-			std::string msg = trim(j.get("msg", "").asString());
+			std::string msg = trim(j.get("text", "").asString());
 			std::string secret = trim(j.get("secret", "").asString());
 
 			if (secret != RELAY_SECRET)
@@ -450,6 +450,8 @@ int main()
 				r->setStatusCode(k400BadRequest);
 				return callback(r);
 			}
+
+			LOG_INFO << msg;
 
 			// 异步发送
 			sendWecomTextAsync(RELAY_SECRET, AGENT_ID_RELAY, TO_USER_RELAY, msg);
@@ -582,6 +584,8 @@ int main()
 
 				// 异步发送到主服务账户
 				sendWecomTextAsync(CORP_SECRET_MAIN, AGENT_ID_MAIN, TO_USER_MAIN, reply);
+
+				//sendWecomTextAsync(RELAY_SECRET, AGENT_ID_RELAY, TO_USER_RELAY, reply);
 
 				// 企业微信要求返回 "success"
 				auto r = HttpResponse::newHttpResponse();

@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.2">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="git使用手册">
+<meta property="og:type" content="article">
+<meta property="og:title" content="git">
+<meta property="og:url" content="http://example.com/posts/518e617c/index.html">
+<meta property="og:site_name" content="xuezc&#39;s home">
+<meta property="og:description" content="git使用手册">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://example.com/images/puttygen.png">
+<meta property="og:image" content="http://example.com/images/ssh_dir.png">
+<meta property="og:image" content="http://example.com/images/ppk_save.png">
+<meta property="og:image" content="http://example.com/images/add_ppk.png">
+<meta property="article:published_time" content="2023-03-27T10:45:00.000Z">
+<meta property="article:modified_time" content="2023-07-10T07:30:26.116Z">
+<meta property="article:author" content="xuezc">
+<meta property="article:tag" content="git">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/images/puttygen.png">
+
+<link rel="canonical" href="http://example.com/posts/518e617c/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>git | xuezc's home</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">xuezc's home</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">首页</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/posts/518e617c/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="xuezc">
+      <meta itemprop="description" content="在这里，你会了解的更多，更透切">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="xuezc's home">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          git
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2023-03-27 18:45:00" itemprop="dateCreated datePublished" datetime="2023-03-27T18:45:00+08:00">2023-03-27</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2023-07-10 15:30:26" itemprop="dateModified" datetime="2023-07-10T15:30:26+08:00">2023-07-10</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/git/" itemprop="url" rel="index"><span itemprop="name">git</span></a>
+                </span>
+            </span>
+
+          
+            <div class="post-description">git使用手册</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="使用代理github"><a href="#使用代理github" class="headerlink" title="使用代理github"></a>使用代理github</h2><p>socks5协议，10808端口修改成自己的本地代理端口</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">git config --global http.proxy socks5://127.0.0.1:10808</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">git config --global https.proxy socks5://127.0.0.1:10808</span><br></pre></td></tr></table></figure>
+<p>http协议，10809端口修改成自己的本地代理端口</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">git config --global http.proxy http://127.0.0.1:10809</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">git config --global https.proxy https://127.0.0.1:10809</span><br></pre></td></tr></table></figure>
+<p>只是加速GITHUB ， 其他保持不变<br>http协议</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">git config --global http.https://github.com.proxy https://127.0.0.1:10809</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">git config --global https.https://github.com.proxy https://127.0.0.1:10809</span><br></pre></td></tr></table></figure>
+<h3 id="socks5协议，1080端口修改成自己的本地代理端口"><a href="#socks5协议，1080端口修改成自己的本地代理端口" class="headerlink" title="socks5协议，1080端口修改成自己的本地代理端口"></a>socks5协议，1080端口修改成自己的本地代理端口</h3><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">git config --global http.https://github.com.proxy socks5://127.0.0.1:10808</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">git config --global https.https://github.com.proxy socks5://127.0.0.1:10808</span><br></pre></td></tr></table></figure>
+<h3 id="解除代理"><a href="#解除代理" class="headerlink" title="解除代理"></a>解除代理</h3><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">git config --global --unset http.proxy</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">git config --global --unset https.proxy</span><br></pre></td></tr></table></figure>
+
+<h2 id="tortoiseGit的SSH-Client设置"><a href="#tortoiseGit的SSH-Client设置" class="headerlink" title="tortoiseGit的SSH Client设置"></a>tortoiseGit的SSH Client设置</h2><h3 id="搜索到PuttyGen程序-单击“Load”按钮，如下图所示"><a href="#搜索到PuttyGen程序-单击“Load”按钮，如下图所示" class="headerlink" title="搜索到PuttyGen程序,单击“Load”按钮，如下图所示"></a>搜索到PuttyGen程序,单击“Load”按钮，如下图所示</h3><img src="/images/puttygen.png" width="593px"  height="462px">
+
+<h3 id="选择用户的公私钥目录下的“id-rsa”文件，然后单击“打开”按钮"><a href="#选择用户的公私钥目录下的“id-rsa”文件，然后单击“打开”按钮" class="headerlink" title="选择用户的公私钥目录下的“id_rsa”文件，然后单击“打开”按钮"></a>选择用户的公私钥目录下的“id_rsa”文件，然后单击“打开”按钮</h3><img src="/images/ssh_dir.png" width="463px"  height="132px">
+
+<h3 id="单击“确定”，再选择“Save-private-key”，如下图所示"><a href="#单击“确定”，再选择“Save-private-key”，如下图所示" class="headerlink" title="单击“确定”，再选择“Save private key”，如下图所示"></a>单击“确定”，再选择“Save private key”，如下图所示</h3><img src="/images/ppk_save.png" width="604px"  height="149px">
+
+<h3 id="生成的文件添加到这儿"><a href="#生成的文件添加到这儿" class="headerlink" title="生成的文件添加到这儿"></a>生成的文件添加到这儿</h3><img src="/images/add_ppk.png">
+## 链接不上
+1.22端口拒绝的话,可以在.ssh目录下设置文件config,内容如下
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">Host github.com</span><br><span class="line">  Hostname ssh.github.com</span><br><span class="line">  Port 443</span><br></pre></td></tr></table></figure>
+2.链接不上的话,直接在network里设置ssh代理程序,使用git的ssh程序
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">C:\Program Files\Git\usr\bin\ssh.exe</span><br></pre></td></tr></table></figure>
+
+<h2 id="git命令"><a href="#git命令" class="headerlink" title="git命令"></a>git命令</h2><p>查看当前版本</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">git --version</span><br></pre></td></tr></table></figure>
+<p>windows下更新git</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">git update-git-for-windows</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">git status  **查看目前状态**</span><br><span class="line">git status -s</span><br><span class="line">git diff **查看工作区跟缓冲区的改变**</span><br><span class="line">git diff --cached **查看缓冲区和上个版本区别**</span><br><span class="line">git diff head **查看工作区、缓冲区和上个版本区别**</span><br><span class="line">git commit -m &#x27;fff&#x27;提交</span><br><span class="line"></span><br><span class="line">git checkout 文件名 将缓冲区还原到工作区</span><br><span class="line">git reset 版本还原到缓冲区</span><br><span class="line">git branch 查看当前分支</span><br><span class="line">git branch -d 分支	//删除分支</span><br><span class="line">创建新分支并立即切换到新分支：$ git checkout -b [name]</span><br><span class="line">合并分支（保留分支的commit）:</span><br><span class="line">git checkout master//master为空则clone，不然切换到master分支</span><br><span class="line">git merge dev//把dev分支的东西合并到master上</span><br><span class="line">在主分支上应该可以只显示子分支的提交，可百度：</span><br><span class="line">git merge dev --no-ff		用这个</span><br></pre></td></tr></table></figure>
+<h3 id="生成key"><a href="#生成key" class="headerlink" title="生成key"></a>生成key</h3><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ssh-keygen -t rsa -C &quot;13436472835@163.com&quot; -f ~/.ssh/github_snow</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ssh-keygen -t rsa</span><br></pre></td></tr></table></figure>
+<p>更安全的</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ssh-keygen -t ECDSA</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ssh-keygen -t Ed25519</span><br></pre></td></tr></table></figure>
+<h3 id="测试连接"><a href="#测试连接" class="headerlink" title="测试连接"></a>测试连接</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ssh -T git@github.com –p 22</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ssh -T git@bitbucket.org –p 22</span><br></pre></td></tr></table></figure>
+<p>指定秘钥测试</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ssh -i ~/.ssh/github_snow -T xuezchuang@github.com</span><br></pre></td></tr></table></figure>
+<h3 id="多秘钥配置"><a href="#多秘钥配置" class="headerlink" title="多秘钥配置"></a>多秘钥配置</h3><p>github有时候不能布置,算求了..生成秘钥</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ssh-keygen -t rsa</span><br></pre></td></tr></table></figure>
+<p>为了兼容tortoisegit,在Network替换为如下.否则要生成多秘钥还有时配不全</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">C:\Program Files\Git\usr\bin\ssh.exe</span><br></pre></td></tr></table></figure>
+
+<p>设置代理,设置哪个网站使用那个秘钥</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">ssh-agent bash</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>删除缓存的密钥</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ssh-add -D</span><br></pre></td></tr></table></figure>
+<p>把以下秘钥加入缓冲中</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ssh-add ~/.ssh/id_rsa_xxx</span><br></pre></td></tr></table></figure>
+<p>进入到.ssh目录中,配置config文件</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ cd ~/.ssh</span><br><span class="line">$ touch config</span><br></pre></td></tr></table></figure>
+<p>config文件直接编辑器输入.对应个网站采用哪个私钥</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">Host github.com-foo</span><br><span class="line">  HostName github.com</span><br><span class="line">  User git</span><br><span class="line">  IdentityFile ~/.ssh/id_foo</span><br><span class="line">  IdentitiesOnly yes</span><br><span class="line"> </span><br><span class="line">Host github.com-bar</span><br><span class="line">  HostName github.com</span><br><span class="line">  User git</span><br><span class="line">  IdentityFile ~/.ssh/id_bar</span><br><span class="line">  IdentitiesOnly yes</span><br></pre></td></tr></table></figure>
+
+<h3 id="更新所有远程分支"><a href="#更新所有远程分支" class="headerlink" title="更新所有远程分支"></a>更新所有远程分支</h3><pre><code>git remote update origin --prune
+git remote update origin -p
+</code></pre>
+<h3 id="取到别的分支提交的代码"><a href="#取到别的分支提交的代码" class="headerlink" title="取到别的分支提交的代码"></a>取到别的分支提交的代码</h3><pre><code>git cherry-pick
+</code></pre>
+<h3 id="查看git操作日志"><a href="#查看git操作日志" class="headerlink" title="查看git操作日志"></a>查看git操作日志</h3><pre><code>git reflog //查看仓库指令
+</code></pre>
+<h3 id="标签：可当做commitid使用"><a href="#标签：可当做commitid使用" class="headerlink" title="标签：可当做commitid使用"></a>标签：可当做commitid使用</h3><pre><code>git tag v1.2 创建标签，后可加commitid
+git tag 查看所有标签
+git tag -d v1.2删除标签
+</code></pre>
+<h3 id="配置别名："><a href="#配置别名：" class="headerlink" title="配置别名："></a>配置别名：</h3><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">git config --global alias.st status以后可用git st 代替git status</span><br><span class="line">git config --global alias.br branch</span><br><span class="line">git config --global alias.ci commit</span><br><span class="line">git config --global alias.co checkout</span><br><span class="line">git config --global alias.lg &quot;log --color --graph --pretty=format:&#x27;%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)&lt;%an&gt;%Creset&#x27; --abbrev-commit&quot;</span><br></pre></td></tr></table></figure>
+<p>查看配置：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line">cat .gitconfig</span><br><span class="line">git config --list	//查看配置</span><br><span class="line">方式一：</span><br><span class="line">.gitconfig文件windows下在C:\Users\xue里面下：</span><br><span class="line"></span><br><span class="line">[user]</span><br><span class="line">    name = xue</span><br><span class="line">    email = xuezc@midasit.com</span><br><span class="line">[core]</span><br><span class="line">    excludesfile = E:/11.txt	//默认的忽略配置文件</span><br><span class="line"></span><br><span class="line">可直接写：git config --global core.excludesifle /e/gitignore.txt</span><br><span class="line">方式二：</span><br><span class="line">直接在仓库目录下写：</span><br><span class="line">vim .gitignore在里面配置文件</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">SSH配置：</span><br><span class="line">    ssh-keygen -t rsa	生成ssh公私钥</span><br><span class="line">    cat ~/.ssh/id_rsa.pub	查看公钥</span><br><span class="line">    ssh -T git@github.com	链接github</span><br><span class="line"></span><br><span class="line">//使用远程仓库</span><br><span class="line">    remote add origin SSH</span><br><span class="line">    git push -u origin 分支</span><br><span class="line"></span><br><span class="line">git fetch origin	//更新远程代码带本地	后可加分支</span><br><span class="line">git branch -a 可显示远程所以分支</span><br><span class="line">git fetch -p	//在fetch之后删除掉没有与远程分支对应的本地分支：</span><br><span class="line"></span><br><span class="line">git branch 分支 远程分支</span><br><span class="line"></span><br><span class="line">git branch -m 分支 分支 //更改分支名字</span><br><span class="line"></span><br><span class="line">创建远程分支(本地分支push到远程)：$ git push origin [name]</span><br><span class="line"></span><br><span class="line">git push origin :branch-name //删除远程分支</span><br></pre></td></tr></table></figure>
+<h3 id="可删除哈希id"><a href="#可删除哈希id" class="headerlink" title="可删除哈希id"></a>可删除哈希id</h3><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">首先确保所有分支都没有引用(包括tags)该提交，包括HEAD也不指向这个提交。</span><br><span class="line">然后 git reflog expire --expire=now --all (这会清除分支变更历史)</span><br><span class="line">然后 git gc --prune=now (不用调整时间，加上--prune=now命令即可)</span><br></pre></td></tr></table></figure>
+
+
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">忽略*.o和*.a文件	*.[oa]</span><br><span class="line">忽略*.b和*.B文件，my.b除外	</span><br><span class="line">	*.[bB]</span><br><span class="line">  !my.b</span><br><span class="line">忽略dbg文件和dbg目录</span><br><span class="line">	dbg</span><br><span class="line">只忽略dbg目录，不忽略dbg文件</span><br><span class="line">	dbg/</span><br><span class="line">只忽略dbg文件，不忽略dbg目录</span><br><span class="line">	dbg</span><br><span class="line">!dbg/</span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">只忽略当前目录下的dbg文件和目录，子目录的dbg不在忽略范围内</span></span><br><span class="line">/dbg</span><br></pre></td></tr></table></figure>
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/git/" rel="tag"># git</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/posts/c2a5fdc5/" rel="prev" title="堆排序">
+      <i class="fa fa-chevron-left"></i> 堆排序
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/posts/6da51312/" rel="next" title="工作流程">
+      工作流程 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8%E4%BB%A3%E7%90%86github"><span class="nav-number">1.</span> <span class="nav-text">使用代理github</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#socks5%E5%8D%8F%E8%AE%AE%EF%BC%8C1080%E7%AB%AF%E5%8F%A3%E4%BF%AE%E6%94%B9%E6%88%90%E8%87%AA%E5%B7%B1%E7%9A%84%E6%9C%AC%E5%9C%B0%E4%BB%A3%E7%90%86%E7%AB%AF%E5%8F%A3"><span class="nav-number">1.1.</span> <span class="nav-text">socks5协议，1080端口修改成自己的本地代理端口</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%A7%A3%E9%99%A4%E4%BB%A3%E7%90%86"><span class="nav-number">1.2.</span> <span class="nav-text">解除代理</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#tortoiseGit%E7%9A%84SSH-Client%E8%AE%BE%E7%BD%AE"><span class="nav-number">2.</span> <span class="nav-text">tortoiseGit的SSH Client设置</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%90%9C%E7%B4%A2%E5%88%B0PuttyGen%E7%A8%8B%E5%BA%8F-%E5%8D%95%E5%87%BB%E2%80%9CLoad%E2%80%9D%E6%8C%89%E9%92%AE%EF%BC%8C%E5%A6%82%E4%B8%8B%E5%9B%BE%E6%89%80%E7%A4%BA"><span class="nav-number">2.1.</span> <span class="nav-text">搜索到PuttyGen程序,单击“Load”按钮，如下图所示</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%80%89%E6%8B%A9%E7%94%A8%E6%88%B7%E7%9A%84%E5%85%AC%E7%A7%81%E9%92%A5%E7%9B%AE%E5%BD%95%E4%B8%8B%E7%9A%84%E2%80%9Cid-rsa%E2%80%9D%E6%96%87%E4%BB%B6%EF%BC%8C%E7%84%B6%E5%90%8E%E5%8D%95%E5%87%BB%E2%80%9C%E6%89%93%E5%BC%80%E2%80%9D%E6%8C%89%E9%92%AE"><span class="nav-number">2.2.</span> <span class="nav-text">选择用户的公私钥目录下的“id_rsa”文件，然后单击“打开”按钮</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8D%95%E5%87%BB%E2%80%9C%E7%A1%AE%E5%AE%9A%E2%80%9D%EF%BC%8C%E5%86%8D%E9%80%89%E6%8B%A9%E2%80%9CSave-private-key%E2%80%9D%EF%BC%8C%E5%A6%82%E4%B8%8B%E5%9B%BE%E6%89%80%E7%A4%BA"><span class="nav-number">2.3.</span> <span class="nav-text">单击“确定”，再选择“Save private key”，如下图所示</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%94%9F%E6%88%90%E7%9A%84%E6%96%87%E4%BB%B6%E6%B7%BB%E5%8A%A0%E5%88%B0%E8%BF%99%E5%84%BF"><span class="nav-number">2.4.</span> <span class="nav-text">生成的文件添加到这儿</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#git%E5%91%BD%E4%BB%A4"><span class="nav-number">3.</span> <span class="nav-text">git命令</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%94%9F%E6%88%90key"><span class="nav-number">3.1.</span> <span class="nav-text">生成key</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%B5%8B%E8%AF%95%E8%BF%9E%E6%8E%A5"><span class="nav-number">3.2.</span> <span class="nav-text">测试连接</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%A4%9A%E7%A7%98%E9%92%A5%E9%85%8D%E7%BD%AE"><span class="nav-number">3.3.</span> <span class="nav-text">多秘钥配置</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9B%B4%E6%96%B0%E6%89%80%E6%9C%89%E8%BF%9C%E7%A8%8B%E5%88%86%E6%94%AF"><span class="nav-number">3.4.</span> <span class="nav-text">更新所有远程分支</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8F%96%E5%88%B0%E5%88%AB%E7%9A%84%E5%88%86%E6%94%AF%E6%8F%90%E4%BA%A4%E7%9A%84%E4%BB%A3%E7%A0%81"><span class="nav-number">3.5.</span> <span class="nav-text">取到别的分支提交的代码</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9F%A5%E7%9C%8Bgit%E6%93%8D%E4%BD%9C%E6%97%A5%E5%BF%97"><span class="nav-number">3.6.</span> <span class="nav-text">查看git操作日志</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%A0%87%E7%AD%BE%EF%BC%9A%E5%8F%AF%E5%BD%93%E5%81%9Acommitid%E4%BD%BF%E7%94%A8"><span class="nav-number">3.7.</span> <span class="nav-text">标签：可当做commitid使用</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%85%8D%E7%BD%AE%E5%88%AB%E5%90%8D%EF%BC%9A"><span class="nav-number">3.8.</span> <span class="nav-text">配置别名：</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8F%AF%E5%88%A0%E9%99%A4%E5%93%88%E5%B8%8Cid"><span class="nav-number">3.9.</span> <span class="nav-text">可删除哈希id</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">xuezc</p>
+  <div class="site-description" itemprop="description">在这里，你会了解的更多，更透切</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">44</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">29</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://xuezchuang.github.io/" title="GitHub → https:&#x2F;&#x2F;xuezchuang.github.io&#x2F;" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/categories" title="分类 → categories"><i class=" fa-fw"></i>分类</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/tags/git" title="git → tags&#x2F;git"><i class="fa git fa-fw"></i>git</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/tags/hexo" title="hexo → tags&#x2F;hexo"><i class=" fa-fw"></i>hexo</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/tags/opengl" title="opengl → tags&#x2F;opengl"><i class=" fa-fw"></i>opengl</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/tags/dx12" title="dx12 → tags&#x2F;dx12"><i class=" fa-fw"></i>dx12</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/tags/graph" title="graph → tags&#x2F;graph"><i class=" fa-fw"></i>graph</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/tags/blender" title="blender → tags&#x2F;blender"><i class=" fa-fw"></i>blender</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2024</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">xuezc</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

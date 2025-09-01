@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.2">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="gdb 的使用">
+<meta property="og:type" content="article">
+<meta property="og:title" content="gdb">
+<meta property="og:url" content="http://example.com/posts/10f4aa60/index.html">
+<meta property="og:site_name" content="xuezc&#39;s home">
+<meta property="og:description" content="gdb 的使用">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2023-03-31T03:02:00.000Z">
+<meta property="article:modified_time" content="2023-03-31T06:12:27.657Z">
+<meta property="article:author" content="xuezc">
+<meta property="article:tag" content="linux">
+<meta property="article:tag" content="gdb">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/posts/10f4aa60/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>gdb | xuezc's home</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">xuezc's home</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">首页</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/posts/10f4aa60/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="xuezc">
+      <meta itemprop="description" content="在这里，你会了解的更多，更透切">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="xuezc's home">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          gdb
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2023-03-31 11:02:00 / 修改时间：14:12:27" itemprop="dateCreated datePublished" datetime="2023-03-31T11:02:00+08:00">2023-03-31</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/linux/" itemprop="url" rel="index"><span itemprop="name">linux</span></a>
+                </span>
+            </span>
+
+          
+            <div class="post-description">gdb 的使用</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>printf  printk<br>GDB<br>命令行调试器<br>gdb gdbserver<br>查看变量的类型：whatis 变量名<br>看函数的堆栈：bt<br>n 10 :next 10行<br>要启动反向调试,要先开启记录:record<br>停止 record stop<br>查看堆栈 bt<br>查看线程 info thread<br>切换线程 thread *<br>/////////////////打印sockaddr/////////////////////<br>p *((struct sockaddr_in_or_whichever_you_use <em>) pointer_to_struct_sockaddr)<br>p <em>((struct sockaddr_in</em>) pointer_to_struct_sockaddr)<br>struct sockaddr from;<br> /</em><br>     …<br>        working<br>     …<br>*/<br> struct sockaddr_in <em>sock = ( struct sockaddr_in</em>)&from;<br> int port = ntohs(sock-&gt;sin_port);<br>sdshdr8<br>((struct sdshdr16 *)((c-&gt;querybuf)-(sizeof(struct sdshdr16))))</p>
+<p>(2)frame或f：查看栈上某一层的消息(包括打印当前栈层消息)。<br>*frame <n>：n是一个从0开始的整数，是栈中的层编号，不打n，显示当前栈层。<br>*up <n>：表示向栈上面移动n层的，可以不打n，表示向上移动一层。<br>*down <n>：表示向栈下面移动n层的，可以不打n，表示向下移动一层。<br>*info frame：打印更为详细的当前栈层的消息。</p>
+<p>jump用法,跳到指定的函数,中间不执行,并且jump到指定函数会继续执行,所有一般是先b后j<br><em><strong>多线程调试</strong></em>——&gt;set scheduler-locking on 设置当前线程开关 On—只调试当前线程</p>
+<p>在 GDB 中使用 signal 函数手动给程序发送信号，这里就是 signal SIGINT；<br>改变 GDB 信号处理的设置，通过 handle SIGINT nostop print 告诉 GDB 在接收到 SIGINT 时不要停止，并把该信号传递给调试目标程序 。</p>
+<p>tb 临时断点,到达自动删除;<br>u === until结束当前循环<br>set print pretty on    设置输出结构体</p>
+<p>设置字符长度 set print elements 0 </p>
+<p>set print pretty off<br>关闭printf pretty这个选项，GDB显示结构体时会如下显示：<br>$1 = {next = 0x0, flags = {sweet = 1, sour = 1}, meat = 0x54”Pork”}<br>show print pretty<br>查看GDB是如何显示结构体的。<br>set print sevenbit-strings<br>设置字符显示，是否按“\nnn”的格式显示，如果打开，则字符串或字符数据按\nnn显示，如“\065”。<br>show print sevenbit-strings<br>查看字符显示开关是否打开。<br>配置好默认gdb文件启动 gdb -x filename<br>A-&gt;B-&gt;C<br>A-&gt;C<br>变量值<br>寄存器<br>内存<br>stack</p>
+<p>/////////////////查看参数//////////////////////<br>info args</p>
+<p>GDB<br>1.run<br>2.设置break 可以设置条件断点<br>3.任何时候停止，并查看当前进程所有的一切<br>4.动态改变执行环境</p>
+<p>命令：<br>    list  l  查看代码<br>    break b  设置断点  b 行号/函数名<br>    info  b  查看断点<br>    run      r  运行程序到第一个断点<br>    next  n  运行下一行 不进入函数<br>    step  s 进入函数<br>    continue c 跳到下一断点<br>    print  p  打印某个变量<br>    bt    函数调用栈<br>    finish 结束当前函数<br>    quit  q  退出gdb<br>    until 或 u 退出循环体<br>    gdb filename<br>    gdb filename pid<br>    examine  x<br>    gdb&gt;set args 10 20 30 40 50</p>
+<pre><code>如何进行反编译
+disassemble
+disassemble /m _ZN5pointC1Eii（readelf  c++filter看出来的符号表）
+shell +命令
+
+ 暂停/恢复程序的方法
+1 断点
+    break   b 
+    break function
+    break offset
+    break filename:function /offset
+    查看设置的断点  info b
+    break *address
+    条件断点
+    break ...if&lt;condition&gt;
+     int a ,b ,c;
+     funa(a);
+     funb(b);
+     func(c);
+     break func if&lt;a==b&gt;
+     eg: break 20 if i==89
+    clear number 删除某行所有的断点
+    del 断点号
+ 2 观察点
+    watch  当变量被写入（变化）的时候 就停止程序
+    rwatch 当该变量被读取的时候 就停止程序
+    awatch  当该变量被访问时 就停止程序
+    info watchpoint
+    
+ 捕捉点
+ 信号
+ 线程暂停
+ 
+ 3.捕捉点
+    catch 
+    1.catch throw
+    2.catch exec  捕捉系统发生execve系统调用时 暂停程序
+    3.catch fork 
+    4.catch vfork
+    5.catch load 
+    6.catch unload
+
+4.
+查看堆栈 bt
+</code></pre>
+<p>GDB的特殊用法<br>watch<br>monitor<br>print<br>catch<br>//——————————————————————–//<br>    如果一个作业已经在前台执行，可以通过ctrl+z将该作业放到后台并挂起。然后通过jobs命令查看在后台执行的作业并找到对应的作业ID，执行bg %n(n为通过jobs查到的作业ID)唤醒该作业继续执行。<br>    该方式也存在结果会输出到终端上的情况，同样可以用重定向的方法解决<br>    相关命令：<br>    jobs————查看在后台执行的进程<br>    fg %n———-将后台执行进程n调到前台执行，n表示jobnumber（通过jobs查看的进程编号，而非pid）<br>    ctrl+z———-将在前台执行的进程，放到后台并挂起<br>    bg %n———将在后台挂起的进程，继续执行</p>
+<p>gdb test-1<br>gdb attach pid<br>gbd test-1 core</p>
+<p>l main 查看main上下5行代码<br>l 10    10行<br>set listsize 20 上下20行<br>l test-1.c:10 //l test-1.c:main<br>视图：<br>focus<br>layout</p>
+<p>调试fork中的子进程可以这样设置:(gdb)set follow-fork-mode child<br>set args 在gdb启动后可以这样设置</p>
+<p>//————————————————————-//<br>当程序被停住了，首先要确认的就是程序是在哪儿被断住的。这个一般是通过查看调用栈信息来看的。在gdb中，查看调用栈的命令是backtrace，可以简写为bt。<br>也可以通过info stack命令实现类似的功能（我更喜欢这个命令）：</p>
+<ol>
+<li><p>通过finish命令运行至函数结束，此时会打印函数返回值。<br> (gdb) finish<br> Run till exit from #0 foo () at main.c:9<br> main () at main.c:15<br> 15 }<br> Value returned is $2 = 100</p>
+</li>
+<li><p>返回值会存储在eax寄存器中，通过查看信息可以获取返回值。<br> (gdb) p $eax<br> $3 = 100</p>
+<p> (gdb) info registers<br> eax 0x64 100<br>//————————————————————-//<br>quit<br>加断点：break b 20<br>查看断点    info breakpoint<br>disable breakpoint 断点号 enable breakpoint 断点号<br>清除断点 delete 断点号<br>执行    run r<br>步入    step s<br>二进制步入    stepi si    显示display/i $pc<br>步出    next n<br>跳出    finish f<br>until 或 u 退出循环体<br>continue c 跳到下一断点<br>bt    函数调用栈<br>finish 结束当前函数<br>查看变量值：info local 变量名<br>查看寄存器：i r    //info registers eax<br>在调试过程中给变量赋值：set args 可指定运行时参数<br>shell:linux命令<br>print  p  打印某个变量    print /f #f表示格式,如 print /x 按十六进制显示<br>查看某个地址的内存<br>x 格式  地址<br>/8ub<br>8:显示8个<br>u:无符号十进制显示<br>b:byte<br>h：half word<br>w：word</p>
+</li>
+</ol>
+<p>如何查看数组的内容<br>int a[10];<br>char a[10]<br>p *array@len<br>p *a@10 </p>
+<p>flag<br>0 100<br>条件watch<br>0  1 100 condition<br>能够令程序暂停和恢复运行的命令：<br>暂停：<br>    Breakpoint<br>    watchpoint<br>    catchpoint<br>    signals<br>    thread stop</p>
+<p>breakpoint<br>  break func<br>  b   num<br>  b filename:linenum<br>  b filename:funname<br>  b   *address  内存断点<br>  break….if<condition>  条件断点<br>  break  if i==50<br>  info breakpoints</p>
+<p>watchpoint<br>  watch expr<br>  rwatch expr         read<br>  awatch expr<br>  info   watchpoints</p>
+<p>catchpoint<br>  catch event<br>    catch  c++捕捉到的异常<br>    throw  c++抛出的异常<br>    exec   Linux调用系统调用exec<br>    fork   Linux调用系统调用fork  创建进程<br>    vfork  调用系统调用vfork 创建线程<br>    load 或者 load libname  载入动态链接库<br>     ex: load pthread    pthread_creat<br>    unload 或者 unload libname  卸载dll  .so </p>
+<pre><code>tcatch event 一次性的捕捉点
+
+info catchpoints
+    
+</code></pre>
+<p>clear<br>delete<br>disable<br>enable</p>
+<p>自动化脚本设计</p>
+<p>commands breaknum<br>…..command list …<br>end<br>commands<br>printf “x is %d\n”,x<br>continue<br>end</p>
+<p>signals<br>    ctl+c  —-》SIGINT<br>    kill pid   kill -9 pid<br>    -9  SIGKILL<br>    SIGCHLD   SIGSEMG 段错误</p>
+<pre><code>handle &lt;signal&gt; &lt;keywords&gt;
+keywords 取值
+nostop  接收到指定信号后不会停止程序，但会带引出消息通知你收到了这个信号
+stop    
+print  会打印通知
+noprint 
+noignore 当调试程序收到指定信号后，gdb不会处理这个信号 ，交由调试程序处理
+ignore 当调试程序收到指定信号后，调试程序不会处理  
+
+handle SIGINT ignore 
+
+info signals
+info handle 
+</code></pre>
+<p>thread stops<br>    break filename:<linespec> thread <threadno><br>    break filename:<linespec> thread <threadno>   if <condition></p>
+<pre><code>threadno  线程ID 是由GDB来分配
+info threads 查看当前线程ID
+如果不指定那么就将该断点设置在所有的线程上
+
+b test-1.c:20 thread 10 if x&gt;100 
+在某个线程被断的时候，GDB会停止所有的线程 
+</code></pre>
+<p>display<br>    display result<br>    display/<fmt> <value><br>    display/i $pc<br>    undisplay  <displaynum><br>    info display<br>    disable  display   <displaynum><br>    enable display  <displaynum><br>    delete  display  <displaynum></p>
+<p>print<br>    set print pretty on<br>    $1={<br>      a =100,<br>       b=20,<br>       c=90<br>    }<br>    set print pretty off<br>    $1={a =100, b=20,  c=90}<br>    如何改变变量的值</p>
+<pre><code>print i=99
+</code></pre>
+<p>jump: 改变程序运行轨迹的方法<br>    jump <linenum><br>    jump <address><br>    set $pc =address</p>
+<pre><code>call &lt;func&gt;
+</code></pre>
+<p>//——————————————————//<br>printf  printk<br>GDB<br>命令行调试器<br>gdb gdbserver</p>
+<p>A-&gt;B-&gt;C<br>A-&gt;C<br>变量值<br>寄存器<br>内存<br>stack</p>
+<p>-g<br>gdb target</p>
+<p>GDB<br>1.run<br>2.设置break 可以设置条件断点<br>3.任何时候停止，并查看当前进程所有的一切<br>4.动态改变执行环境</p>
+<p>命令：<br>    list  l  查看代码<br>    break b  设置断点  b 行号/函数名<br>    info  b  查看断点<br>    run      r  运行程序到第一个断点<br>    next  n  运行下一行 不进入函数<br>    continue c 跳到下一断点<br>    print  p  打印某个变量<br>    bt    函数调用栈<br>    finish 结束当前函数<br>    quit  q  退出gdb<br>    until 或 u 退出循环体<br>    gdb filename<br>    gdb filename pid<br>    examine  x<br>    gdb&gt;set args 10 20 30 40 50</p>
+<pre><code>如何进行反编译
+disassemble
+disassemble /m _ZN5pointC1Eii（readelf  c++filter看出来的符号表）
+shell +命令
+
+ 暂停/恢复程序的方法
+1 断点
+    break   b 
+    break function
+    break offset
+    break filename:function /offset
+    查看设置的断点  info b
+    break *address
+    条件断点
+    break ...if&lt;condition&gt;
+     int a ,b ,c;
+     funa(a);
+     funb(b);
+     func(c);
+     break func if&lt;a==b&gt;
+     eg: break 20 if i==89
+     
+ 2 观察点
+    watch  当变量被写入（变化）的时候 就停止程序
+    rwatch 当该变量被读取的时候 就停止程序
+    awatch  当该变量被访问时 就停止程序
+    info watchpoint
+    
+ 捕捉点
+ 信号
+ 线程暂停
+ 
+ 3.捕捉点
+    catch 
+    1.catch throw
+    2.catch exec  捕捉系统发生execve系统调用时 暂停程序
+    3.catch fork 
+    4.catch vfork
+    5.catch load 
+    6.catch unload
+</code></pre>
+<p>gbd调试signal时：<br>(gdb)signal SIGINT    继续</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/linux/" rel="tag"># linux</a>
+              <a href="/tags/gdb/" rel="tag"># gdb</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/posts/9520183a/" rel="prev" title="mysql">
+      <i class="fa fa-chevron-left"></i> mysql
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/posts/f255ffad/" rel="next" title="docker">
+      docker <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">xuezc</p>
+  <div class="site-description" itemprop="description">在这里，你会了解的更多，更透切</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">44</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">29</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://xuezchuang.github.io/" title="GitHub → https:&#x2F;&#x2F;xuezchuang.github.io&#x2F;" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/categories" title="分类 → categories"><i class=" fa-fw"></i>分类</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/tags/git" title="git → tags&#x2F;git"><i class="fa git fa-fw"></i>git</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/tags/hexo" title="hexo → tags&#x2F;hexo"><i class=" fa-fw"></i>hexo</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/tags/opengl" title="opengl → tags&#x2F;opengl"><i class=" fa-fw"></i>opengl</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/tags/dx12" title="dx12 → tags&#x2F;dx12"><i class=" fa-fw"></i>dx12</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/tags/graph" title="graph → tags&#x2F;graph"><i class=" fa-fw"></i>graph</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/tags/blender" title="blender → tags&#x2F;blender"><i class=" fa-fw"></i>blender</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2024</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">xuezc</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

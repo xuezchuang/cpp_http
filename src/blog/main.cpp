@@ -45,6 +45,7 @@ struct BlogPost  {
 	std::string html;      // 预渲染后的 HTML（你要的）
 	std::string date_iso;
 	size_t      size{ 0 };
+	bool needsRebuild{false}; 
 };
 
 // —— 全局内存库 ——
@@ -342,17 +343,126 @@ static std::string escapeHtml(const std::string& s, bool keepNewline = true)
 	return out;
 }
 
+// ==== helpers ===============================================================
 
-#include <md4c-html.h>
+// 给没有 class 的 <pre><code> 补上 language-plaintext
+// 给没有 class 的 <pre><code> 补上 language-plaintext
+static inline void ensure_code_class(std::string& html)
+{
+	static const std::regex re(
+		R"(<pre\b[^>]*>\s*<code\b(?![^>]*\bclass\s*=)[^>]*>)",
+		std::regex::icase
+	);
 
-// Markdown -> HTML（兼容不同 md4c 版本的 flag）
+	std::string out;
+	out.reserve(html.size());
+
+	std::sregex_iterator it(html.begin(), html.end(), re), end;
+	size_t last = 0;
+
+	for (; it != end; ++it)
+	{
+		const auto& m = *it;
+		size_t start = static_cast<size_t>(m.position());
+		size_t len = static_cast<size_t>(m.length());
+
+		// 先把上一个匹配到当前匹配开始之间的内容拷贝出来
+		out.append(html, last, start - last);
+
+		// 在匹配到的 <code ...> 里插入 class
+		std::string tag = m.str();                 // e.g. "<pre ...><code ...>"
+		size_t pos = tag.find("<code");
+		if (pos != std::string::npos)
+		{
+			pos += 5; // 跳过 "<code"
+			tag.insert(pos, R"( class="language-plaintext")");
+		}
+		out += tag;
+
+		last = start + len;
+	}
+
+	// 末尾残余
+	out.append(html, last, std::string::npos);
+	html.swap(out);
+}
+
+// 把 <pre><code class="language-xxx">...</code></pre>
+// 包装成 NexT 风格：highlight-container + figure.highlight + copy-btn
+static inline void wrap_codeblocks_next(std::string& html)
+{
+	// 只处理“尚未被包装”的简单代码块；尽量宽松匹配换行/空白
+	// m[1]: code 的属性串；m[2]: 代码内容
+	static const std::regex re(
+		R"(<pre\b[^>]*>\s*<code\b([^>]*)>([\s\S]*?)</code>\s*</pre>)",
+		std::regex::icase
+	);
+
+	std::string out;
+	out.reserve(html.size() * 11 / 10);
+
+	std::sregex_iterator it(html.begin(), html.end(), re);
+	std::sregex_iterator end;
+
+	size_t last = 0;
+	for (; it != end; ++it)
+	{
+		const auto& m = *it;
+
+		// 避免二次包装：如果匹配片段前面 200 个字符内已经出现 highlight-container，跳过
+		size_t start = static_cast<size_t>(m.position());
+		size_t guard = (start > 200 ? start - 200 : 0);
+		std::string_view prefix(html.data() + guard, start - guard);
+		if (prefix.find("highlight-container") != std::string_view::npos)
+		{
+			continue;
+		}
+
+		// 取 code 的属性，找 language-xxx
+		std::string codeAttr = m[1].str();
+		std::string inner = m[2].str();
+
+		std::string lang = "plaintext";
+		{
+			static const std::regex reLang(R"(language-([A-Za-z0-9_+-]+))", std::regex::icase);
+			std::smatch lm;
+			if (std::regex_search(codeAttr, lm, reLang) && lm.size() >= 2)
+			{
+				lang = lm[1].str();
+			}
+			else
+			{
+				// 若没找到，顺带把 class 补上（稳妥）
+				if (codeAttr.find("class=") == std::string::npos)
+				{
+					codeAttr += R"( class="language-plaintext")";
+				}
+			}
+		}
+
+		// 拼接替换
+		out.append(html, last, start - last);
+		out += "<div class=\"highlight-container\">";
+		out += "<figure class=\"highlight " + lang + "\">";
+		// 保留原来的 <pre><code ...> ... </code></pre> 结构，最大限度兼容样式与行高亮
+		out += "<pre><code" + codeAttr + ">" + inner + "</code></pre>";
+		out += "</figure>";
+		out += R"(<div class="copy-btn"><i class="fa fa-clipboard fa-fw"></i></div>)";
+		out += "</div>";
+
+		last = start + static_cast<size_t>(m.length());
+	}
+	out.append(html, last, std::string::npos);
+	html.swap(out);
+}
+
+// ==== main ==================================================================
 static std::string mdToHtml(const std::string& md)
 {
 #ifdef USE_MD4C
 	std::string out;
 
-	unsigned pf = 0;  // parser flags
-	// 这些宏在不同版本可能不存在，逐个 #ifdef 检查
+	unsigned pf = 0;
 #ifdef MD_FLAG_TABLES
 	pf |= MD_FLAG_TABLES;
 #endif
@@ -372,7 +482,7 @@ static std::string mdToHtml(const std::string& md)
 	pf |= MD_FLAG_PERMISSIVEURLAUTOLINKS;
 #endif
 #ifdef MD_FLAG_PERMISSIVEWWWAUTOLINKS
-	pf |= MD_FLAG_PERMISSIVEWWWAUTOLINKS;   // 注意这个名字是没有下划线的 WWWA
+	pf |= MD_FLAG_PERMISSIVEWWWAUTOLINKS;
 #endif
 #ifdef MD_FLAG_LATEXMATHSPANS
 	pf |= MD_FLAG_LATEXMATHSPANS;
@@ -381,7 +491,7 @@ static std::string mdToHtml(const std::string& md)
 	pf |= MD_FLAG_WIKILINKS;
 #endif
 
-	unsigned rf = 0;  // renderer flags
+	unsigned rf = 0;
 #ifdef MD_HTML_FLAG_SKIP_UTF8_BOM
 	rf |= MD_HTML_FLAG_SKIP_UTF8_BOM;
 #endif
@@ -394,28 +504,219 @@ static std::string mdToHtml(const std::string& md)
 	rf |= MD_HTML_FLAG_XHTML;
 #endif
 
-	int rc = md_html(
-		md.c_str(),
-		(MD_SIZE)md.size(),
-		md4c_out,       // ✅ void 回调
-		&out,
-		pf,
-		rf
-	);
-	if (rc == 0) return out;
-	// 渲染失败则降级
+	if (md_html(md.c_str(), (MD_SIZE)md.size(), md4c_out, &out, pf, rf) == 0)
+	{
+		// 1) 给 <code> 兜底 class
+		ensure_code_class(out);
+		// 2) 包成 NexT 的 highlight-container + copy-btn 结构
+		wrap_codeblocks_next(out);
+		return out;
+	}
 #endif
+	// 渲染失败降级为纯文本
 	return std::string("<pre>") + escapeHtml(md, /*keepNewline=*/true) + "</pre>";
 }
+
 static const std::string& ensurePostHtml(BlogPost& post)
 {
 	if (post.html.empty())
 	{
-		post.html = mdToHtml(post.body);  // 只转换一次
+		post.html = mdToHtml(post.body);        // 懒渲染一次
 	}
 	return post.html;
 }
 
+
+// 简易替换
+static inline void replace_all(std::string& s, const std::string& from, const std::string& to)
+{
+	if (from.empty()) return;
+	size_t pos = 0;
+	while ((pos = s.find(from, pos)) != std::string::npos)
+	{
+		s.replace(pos, from.size(), to);
+		pos += to.size();
+	}
+}
+
+// 安全 HTML 转义（title/desc 用）
+static std::string html_escape(const std::string& in)
+{
+	std::string out; out.reserve(in.size() * 1.1);
+	for (char c : in)
+	{
+		switch (c)
+		{
+		case '&': out += "&amp;"; break;
+		case '<': out += "&lt;"; break;
+		case '>': out += "&gt;"; break;
+		case '"': out += "&quot;"; break;
+		case '\'': out += "&#39;"; break;
+		default: out.push_back(c);
+		}
+	}
+	return out;
+}
+
+// ISO 日期 -> 仅日期（YYYY-MM-DD）
+static std::string iso_date_only(const std::string& iso)
+{
+	// 期望形如 2025-08-29T15:11:17.022Z
+	auto p = iso.find('T');
+	return p == std::string::npos ? iso : iso.substr(0, p);
+}
+
+struct SiteConfig {
+	std::string siteUrl;    // "http://example.com/"
+	std::string siteName;   // "xuezc's home"
+	std::string publicRoot; // 例如 "/root/myblog/public"
+	std::string author;     // 默认作者
+
+	std::string siteSubtitle;
+	std::string authorDesc;
+	std::string authorAvatar;
+	std::string siteHost;
+};
+
+// 读取模板
+static bool read_text_file(const std::string& path, std::string& out)
+{
+	std::ifstream ifs(path, std::ios::binary);
+	if (!ifs) return false;
+	std::ostringstream ss; ss << ifs.rdbuf();
+	out = ss.str();
+	return true;
+}
+
+// 用 BlogPost 渲染模板
+static std::string render_post_html(const BlogPost& post, const SiteConfig& cfg, const std::string& tpl)
+{
+	std::string html = tpl;
+
+	// ========= 基础字段 =========
+	const std::string title = post.title.empty() ? "Untitled" : post.title;
+	const std::string desc = post.description;
+	const std::string dateIso = post.date_iso.empty() ? "1970-01-01T00:00:00.000Z" : post.date_iso;
+	const std::string dateDay = iso_date_only(dateIso);  // 2025-08-30
+	const std::string permalink = cfg.siteUrl + "posts/" + post.id + "/";
+
+	// 更新时间（目前直接复用 date_iso，可拓展）
+	const std::string dateUpdatedIso = dateIso;
+	const std::string dateUpdatedText = dateDay;
+
+	// ========= 分类 HTML =========
+	std::string catsHtml;
+	if (!post.categories.empty())
+	{
+		catsHtml += R"(<span class="post-meta-item"><span class="post-meta-item-icon"><i class="far fa-folder"></i></span>
+<span class="post-meta-item-text">分类于</span>)";
+		for (size_t i = 0; i < post.categories.size(); ++i)
+		{
+			if (i) catsHtml += " ，";
+			catsHtml += "<span itemprop=\"about\" itemscope itemtype=\"http://schema.org/Thing\"><a href=\"/categories/"
+				+ post.categories[i] + "/\" itemprop=\"url\" rel=\"index\"><span itemprop=\"name\">"
+				+ html_escape(post.categories[i]) + "</span></a></span>";
+		}
+		catsHtml += "</span>";
+	}
+
+	// ========= 标签 HTML =========
+	std::string tagsHtml;
+	if (!post.tags.empty())
+	{
+		tagsHtml += R"(<div class="post-tags">)";
+		for (auto& t : post.tags)
+		{
+			tagsHtml += "<a href=\"/tags/" + t + "/\" rel=\"tag\"># " + html_escape(t) + "</a>";
+		}
+		tagsHtml += "</div>";
+	}
+	// ========= 替换占位符 =========
+	replace_all(html, "{{TITLE}}", html_escape(title));
+	replace_all(html, "{{SITENAME}}", html_escape(cfg.siteName));
+	replace_all(html, "{{SITE_SUBTITLE}}", html_escape(cfg.siteSubtitle));
+	replace_all(html, "{{DESCRIPTION}}", html_escape(desc));
+	replace_all(html, "{{URL}}", permalink);
+	replace_all(html, "{{HOSTNAME}}", cfg.siteHost.empty() ? "localhost" : cfg.siteHost);
+
+	replace_all(html, "{{AUTHOR_NAME}}", html_escape(cfg.author));
+	replace_all(html, "{{AUTHOR_DESC}}", html_escape(cfg.authorDesc));
+	replace_all(html, "{{AUTHOR_AVATAR}}",html_escape(cfg.authorAvatar));
+
+	replace_all(html, "{{DATE_PUBLISHED}}", dateIso);
+	replace_all(html, "{{DATE_UPDATED}}", dateUpdatedIso);
+	replace_all(html, "{{DATE_TEXT}}", dateDay);
+	replace_all(html, "{{DATE_UPDATED_TEXT}}", dateUpdatedText);
+	replace_all(html, "{{DATE_UPDATED_TEXT_HIDE}}", ""); // 如果没更新字段, 可以替换成 "display:none"
+
+	replace_all(html, "{{YEAR}}", dateDay.substr(0, 4));
+	replace_all(html, "{{CONTENT}}", post.html.empty() ? "<p>(空)</p>" : post.html);
+
+	replace_all(html, "{{CATEGORIES_HTML}}", catsHtml);
+	replace_all(html, "{{TAGS_HTML}}", tagsHtml);
+
+	// ========= 占位的其它字段（暂时留空） =========
+	replace_all(html, "{{PREV_HTML}}", "");
+	replace_all(html, "{{NEXT_HTML}}", "");
+	replace_all(html, "{{SIDEBAR_LINKS_HTML}}", "");
+
+	// 站点统计（简单填充）
+	replace_all(html, "{{COUNT_POSTS}}", std::to_string(g_postsById.size()));
+	replace_all(html, "{{COUNT_CATEGORIES}}", std::to_string(g_postsByCategory.size()));
+	replace_all(html, "{{COUNT_TAGS}}", std::to_string(g_postsByTag.size()));
+
+	return html;
+}
+
+static bool ensure_static_page(BlogPost& post,
+	const SiteConfig& cfg,
+	const std::string& tplPath,
+	std::string* outPath = nullptr)
+{
+	const std::string dir = cfg.publicRoot + "/posts/" + post.id;
+	const std::string file = dir + "/index.html";
+
+	// 1) 如果已存在且没有“需要重建”的标记，直接用
+	std::error_code ec;
+	if (!post.needsRebuild && std::filesystem::exists(file, ec))
+	{
+		if (outPath) *outPath = file;
+		return true;
+	}
+
+	// 2) 懒渲染 + 落盘
+	ensurePostHtml(post);
+
+	std::string tpl;
+	if (!read_text_file(tplPath, tpl)) return false;
+	std::string page = render_post_html(post, cfg, tpl);
+
+	std::filesystem::create_directories(dir, ec);
+	// 原子写：先写临时文件再 rename，避免半包文件被读到
+	const std::string tmp = file + ".tmp";
+	{
+		std::ofstream ofs(tmp, std::ios::binary | std::ios::trunc);
+		if (!ofs) return false;
+		ofs << page;
+	}
+	std::filesystem::rename(tmp, file, ec);
+
+	post.needsRebuild = false;      // ✅ 已重建
+	if (outPath) *outPath = file;
+	return true;
+}
+
+// 站点配置（实际放到你的初始化里）
+static SiteConfig g_siteCfg{
+	/*siteUrl=*/   "http://example.com/",
+	/*siteName=*/  "xuezc's home",
+	/*publicRoot=*/std::filesystem::absolute("public").string(),
+	/*author=*/    "xuezc",
+	/*siteSubtitle*/ "首页",
+	/*authorDesc*/   "在这里，你会了解更多,更透彻",
+	/*authorAvatar*/ "",
+	/*siteHost*/     "example.com"
+};
 
 static bool authOk(const HttpRequestPtr& req)
 {
@@ -439,7 +740,6 @@ static bool authOk(const HttpRequestPtr& req)
 	}
 	return false;
 }
-
 
 static inline std::string toLower(std::string s)
 {
@@ -957,18 +1257,16 @@ int main()
 	app().setDocumentRoot(kDocRoot);
 
 	// 2) 托管 /admin/ 前端（把 hexo-admin 当静态文件）	Drogon 只有一个 documentRoot，这里用一个“兜底路由”来读文件：
-	app().registerHandler("/admin", [](const HttpRequestPtr&, std::function<void(const HttpResponsePtr&)>&& cb)
+	app().registerHandler("/admin", [](const HttpRequestPtr& req, std::function<void(const HttpResponsePtr&)>&& cb)
 		{
 			auto p = fs::path(kAdminRoot) / "login/index.html";   // 你原来的入口
 			auto r = HttpResponse::newFileResponse(p.string());
 			r->setContentTypeCode(CT_TEXT_HTML);
 			cb(r);
+	
 		}, { Get });
 
-	// 登录：POST /admin   (表单 or JSON)	通过后发一个 cookie（或你想用的 token），再 302 跳回 /admin/
-	app().registerHandler(
-		"/admin",
-		[](const HttpRequestPtr& req,std::function<void(const HttpResponsePtr&)>&& cb)
+	app().registerHandler("/admin", [](const HttpRequestPtr& req, std::function<void(const HttpResponsePtr&)>&& cb)
 		{
 			if (req->method() != Post)
 			{
@@ -993,8 +1291,9 @@ int main()
 				}
 			}
 			else
-			{ // 视作表单：application/x-www-form-urlencoded
-				 // 简单解析 a=b&c=d
+			{
+				// 视作表单：application/x-www-form-urlencoded
+					// 简单解析 a=b&c=d
 				auto decode = [](std::string v) { return drogon::utils::urlDecode(v); };
 				std::string s(req->getBody());
 				size_t p = 0;
@@ -1042,9 +1341,8 @@ int main()
 				r->setBody("bad credentials");
 				return cb(r);
 			}
-		},
-		{ Post }
-	);
+
+		}, { Post });
 
 	// 3) 一个简单的“兼容型” API（路径你可按 hexo-admin 的请求改名）
 	// 3.1 预检（CORS）
@@ -1259,197 +1557,200 @@ int main()
 		"/admin/api/posts/{1}",
 		[](const HttpRequestPtr& req,std::function<void(const HttpResponsePtr&)>&& cb,const std::string& id)
 		{
-			// 1) 查找文章
-			BlogPost* postPtr = nullptr;
+			if (req->method() == Get)
 			{
-#ifdef USE_STORE_LOCK
-				std::shared_lock lk(g_storeMutex);
-#endif
-				auto it = g_postsById.find(id);
-				if (it != g_postsById.end())
+				// 1) 查找文章
+				BlogPost* postPtr = nullptr;
 				{
-					// 取可写引用用于懒渲染缓存
-					postPtr = &const_cast<BlogPost&>(it->second);
-				}
-			}
-			if (!postPtr)
-			{
-				auto r = HttpResponse::newHttpResponse();
-				r->setStatusCode(k404NotFound);
-				cb(r);
-				return;
-			}
-			BlogPost& post = *postPtr;
-
-			// 2) 懒渲染 HTML
-			const std::string& html = ensurePostHtml(post);
-
-			// 3) 组装最小可渲染 JSON
-			Json::Value p(Json::objectValue);
-			p["title"] = post.title.empty() ? "Untitled" : post.title;
-			p["date"] = post.date_iso.empty() ? "1970-01-01T00:00:00.000Z" : post.date_iso;
-			p["abbrlink"] = post.id;
-			p["published"] = true;
-			p["isDraft"] = false;
-			p["isDiscarded"] = false;
-			p["_id"] = post.id;
-			p["path"] = "posts/" + post.id + "/";
-			p["source"] = "_posts/" + post.relPath;   // 按你旧约定
-			p["raw"] = post.raw;                   // 如不需要可去掉
-			p["content"] = html;                       // 关键：详情页 HTML
-
-			// tags / categories（名字数组）
-			{
-				Json::Value tags(Json::arrayValue);
-				for (const auto& t : post.tags) tags.append(t);
-				p["tags"] = tags;
-
-				Json::Value cats(Json::arrayValue);
-				for (const auto& c : post.categories) cats.append(c);
-				p["categories"] = cats;
-			}
-
-			// 4) 输出 UTF-8 JSON
-			Json::StreamWriterBuilder builder;
-			builder["emitUTF8"] = true;
-			std::string jsonBody = Json::writeString(builder, p);
-
-			auto r = HttpResponse::newHttpResponse();
-			r->setContentTypeString("application/json; charset=utf-8");
-			r->setBody(std::move(jsonBody));
-			cb(r);
-		},
-		{ Get }
-	);
-
-	app().registerHandler(
-		"/admin/api/posts/{1}",
-		[](const HttpRequestPtr& req,std::function<void(const HttpResponsePtr&)>&& cb,const std::string& id)
-		{
-			// 1) 找文章
-			BlogPost* postPtr = nullptr;
-			{
 #ifdef USE_STORE_LOCK
-				std::shared_lock lk(g_storeMutex);
+					std::shared_lock lk(g_storeMutex);
 #endif
-				auto it = g_postsById.find(id);
-				if (it != g_postsById.end())
-				{
-					postPtr = &it->second;
+					auto it = g_postsById.find(id);
+					if (it != g_postsById.end())
+					{
+						// 取可写引用用于懒渲染缓存
+						postPtr = &const_cast<BlogPost&>(it->second);
+					}
 				}
-			}
-			if (!postPtr)
-			{
+				if (!postPtr)
+				{
+					auto r = HttpResponse::newHttpResponse();
+					r->setStatusCode(k404NotFound);
+					cb(r);
+					return;
+				}
+				BlogPost& post = *postPtr;
+
+				// 2) 懒渲染 HTML
+				const std::string& html = ensurePostHtml(post);
+
+				// 3) 组装最小可渲染 JSON
+				Json::Value p(Json::objectValue);
+				p["title"] = post.title.empty() ? "Untitled" : post.title;
+				p["date"] = post.date_iso.empty() ? "1970-01-01T00:00:00.000Z" : post.date_iso;
+				p["abbrlink"] = post.id;
+				p["published"] = true;
+				p["isDraft"] = false;
+				p["isDiscarded"] = false;
+				p["_id"] = post.id;
+				p["path"] = "posts/" + post.id + "/";
+				p["source"] = "_posts/" + post.relPath;   // 按你旧约定
+				p["raw"] = post.raw;                   // 如不需要可去掉
+				p["content"] = html;                       // 关键：详情页 HTML
+
+				// tags / categories（名字数组）
+				{
+					Json::Value tags(Json::arrayValue);
+					for (const auto& t : post.tags) tags.append(t);
+					p["tags"] = tags;
+
+					Json::Value cats(Json::arrayValue);
+					for (const auto& c : post.categories) cats.append(c);
+					p["categories"] = cats;
+				}
+
+				// 4) 输出 UTF-8 JSON
+				Json::StreamWriterBuilder builder;
+				builder["emitUTF8"] = true;
+				std::string jsonBody = Json::writeString(builder, p);
+
 				auto r = HttpResponse::newHttpResponse();
-				r->setStatusCode(k404NotFound);
+				r->setContentTypeString("application/json; charset=utf-8");
+				r->setBody(std::move(jsonBody));
 				cb(r);
-				return;
 			}
-			BlogPost& post = *postPtr;
-
-			// 2) 解析请求 JSON
-			Json::Value in;
-			try
+			else
 			{
-				if (auto jsonPtr = req->getJsonObject()) in = *jsonPtr;
+				// 1) 找文章
+				BlogPost* postPtr = nullptr;
+				{
+#ifdef USE_STORE_LOCK
+					std::shared_lock lk(g_storeMutex);
+#endif
+					auto it = g_postsById.find(id);
+					if (it != g_postsById.end())
+					{
+						postPtr = &it->second;
+					}
+				}
+				if (!postPtr)
+				{
+					auto r = HttpResponse::newHttpResponse();
+					r->setStatusCode(k404NotFound);
+					cb(r);
+					return;
+				}
+				BlogPost& post = *postPtr;
+
+				// 2) 解析请求 JSON
+				Json::Value in;
+				try
+				{
+					if (auto jsonPtr = req->getJsonObject()) in = *jsonPtr;
+				}
+				catch (...) {}
+
+				if (in.isMember("title"))       post.title = in["title"].asString();
+				if (in.isMember("description")) post.description = in["description"].asString();
+				if (in.isMember("_content"))
+				{
+					post.body = in["_content"].asString();
+					post.html = mdToHtml(post.body);
+				}
+				//if (in.isMember("content"))		post.html = in["content"].asString();
+				if (in.isMember("tags"))
+				{
+					post.tags.clear();
+					for (auto& t : in["tags"]) post.tags.push_back(t.asString());
+				}
+				if (in.isMember("categories"))
+				{
+					post.categories.clear();
+					for (auto& c : in["categories"]) post.categories.push_back(c.asString());
+				}
+
+				// 3) 更新 raw（重新拼 front-matter + body）
+				std::ostringstream fm;
+				fm << "---\n"
+					<< "title: " << post.title << "\n";
+				if (!post.description.empty())
+					fm << "description: " << post.description << "\n";
+				if (!post.tags.empty())
+				{
+					fm << "tags:\n";
+					for (auto& t : post.tags) fm << "- " << t << "\n";
+				}
+				if (!post.categories.empty())
+				{
+					fm << "categories:\n";
+					for (auto& c : post.categories) fm << "- " << c << "\n";
+				}
+				fm << "---\n";
+				post.raw = fm.str() + post.body;
+
+				// 写回文件
+				try
+				{
+					fs::path absPath = kSourceRoot / post.relPath;
+					std::ofstream ofs(absPath, std::ios::binary | std::ios::trunc);
+					ofs << post.raw;
+				}
+				catch (...)
+				{
+					// 出错可以返回 500
+				}
+
+				post.needsRebuild = true;
+
+				// 4) 重新渲染 HTML（懒渲染缓存失效）
+				//post.html.clear();
+				const std::string& html = ensurePostHtml(post);
+
+				// 5) 返回 JSON
+				Json::Value jp(Json::objectValue);
+				jp["title"] = post.title;
+				jp["description"] = post.description;
+				jp["_content"] = post.body;
+				jp["raw"] = post.raw;
+				jp["_id"] = post.id;
+				jp["abbrlink"] = post.id;
+				jp["path"] = "posts/" + post.id + "/";
+				jp["content"] = html;
+
+				// tags / categories
+				{
+					Json::Value tags(Json::arrayValue);
+					for (auto& t : post.tags) tags.append(t);
+					jp["tags"] = tags;
+
+					Json::Value cats(Json::arrayValue);
+					for (auto& c : post.categories) cats.append(c);
+					jp["categories"] = cats;
+				}
+
+				// tagsCategoriesAndMetadata
+				Json::Value tcm(Json::objectValue);
+				tcm["categories"] = Json::Value(Json::objectValue);
+				tcm["tags"] = Json::Value(Json::objectValue);
+				collect_tags_categories(tcm["categories"], tcm["tags"]);
+				tcm["metadata"] = Json::Value(Json::arrayValue);
+				tcm["metadata"].append("description");
+
+				Json::Value root(Json::objectValue);
+				root["post"] = jp;
+				root["tagsCategoriesAndMetadata"] = tcm;
+
+				Json::StreamWriterBuilder b; b["emitUTF8"] = true;
+				auto body = Json::writeString(b, root);
+				auto r = HttpResponse::newHttpResponse();
+				r->setStatusCode(k200OK);
+				r->setContentTypeString("application/json; charset=utf-8");
+				r->setBody(std::move(body));
+				cb(r);
 			}
-			catch (...) {}
-
-			if (in.isMember("title"))       post.title = in["title"].asString();
-			if (in.isMember("description")) post.description = in["description"].asString();
-			if (in.isMember("_content"))    post.body = in["_content"].asString();
-			if (in.isMember("content"))		post.html = in["content"].asString();
-			if (in.isMember("tags"))
-			{
-				post.tags.clear();
-				for (auto& t : in["tags"]) post.tags.push_back(t.asString());
-			}
-			if (in.isMember("categories"))
-			{
-				post.categories.clear();
-				for (auto& c : in["categories"]) post.categories.push_back(c.asString());
-			}
-
-			// 3) 更新 raw（重新拼 front-matter + body）
-			std::ostringstream fm;
-			fm << "---\n"
-				<< "title: " << post.title << "\n";
-			if (!post.description.empty())
-				fm << "description: " << post.description << "\n";
-			if (!post.tags.empty())
-			{
-				fm << "tags:\n";
-				for (auto& t : post.tags) fm << "- " << t << "\n";
-			}
-			if (!post.categories.empty())
-			{
-				fm << "categories:\n";
-				for (auto& c : post.categories) fm << "- " << c << "\n";
-			}
-			fm << "---\n";
-			post.raw = fm.str() + post.body;
-
-			// 写回文件
-			try
-			{
-				fs::path absPath = kSourceRoot / post.relPath;
-				std::ofstream ofs(absPath, std::ios::binary | std::ios::trunc);
-				ofs << post.raw;
-			}
-			catch (...)
-			{
-				// 出错可以返回 500
-			}
-
-			// 4) 重新渲染 HTML（懒渲染缓存失效）
-			//post.html.clear();
-			const std::string& html = ensurePostHtml(post);
-
-			// 5) 返回 JSON
-			Json::Value jp(Json::objectValue);
-			jp["title"] = post.title;
-			jp["description"] = post.description;
-			jp["_content"] = post.body;
-			jp["raw"] = post.raw;
-			jp["_id"] = post.id;
-			jp["abbrlink"] = post.id;
-			jp["path"] = "posts/" + post.id + "/";
-			jp["content"] = html;
-
-			// tags / categories
-			{
-				Json::Value tags(Json::arrayValue);
-				for (auto& t : post.tags) tags.append(t);
-				jp["tags"] = tags;
-
-				Json::Value cats(Json::arrayValue);
-				for (auto& c : post.categories) cats.append(c);
-				jp["categories"] = cats;
-			}
-
-			// tagsCategoriesAndMetadata
-			Json::Value tcm(Json::objectValue);
-			tcm["categories"] = Json::Value(Json::objectValue);
-			tcm["tags"] = Json::Value(Json::objectValue);
-			collect_tags_categories(tcm["categories"], tcm["tags"]);
-			tcm["metadata"] = Json::Value(Json::arrayValue);
-			tcm["metadata"].append("description");
-
-			Json::Value root(Json::objectValue);
-			root["post"] = jp;
-			root["tagsCategoriesAndMetadata"] = tcm;
-
-			Json::StreamWriterBuilder b; b["emitUTF8"] = true;
-			auto body = Json::writeString(b, root);
-			auto r = HttpResponse::newHttpResponse();
-			r->setStatusCode(k200OK);
-			r->setContentTypeString("application/json; charset=utf-8");
-			r->setBody(std::move(body));
-			cb(r);
 		},
-		{ Post } // 这是 POST 版本
+		{ Get,Post }
 	);
-
 
 	app().registerHandler(
 		"/admin/api/posts/new",
@@ -1552,6 +1853,7 @@ int main()
 			out["isDraft"] = true;
 			out["isDiscarded"] = false;
 
+
 			// 7) 返回
 			Json::StreamWriterBuilder b;
 			b["emitUTF8"] = true;
@@ -1564,9 +1866,71 @@ int main()
 		},
 		{ Post }
 	);
+
+	// 模板文件路径
+#ifndef POST_TEMPLATE_PATH
+#define POST_TEMPLATE_PATH "templates/post.html.tpl" // 兜底
+#endif
+
+	static const std::string kPostTpl = POST_TEMPLATE_PATH;
+
+	app().registerHandler(
+		"/posts/{1}/",
+		[](const HttpRequestPtr& req,
+			std::function<void(const HttpResponsePtr&)>&& cb,
+			const std::string& id)
+		{
+			// 找内存里的文章
+			BlogPost* postPtr = nullptr;
+			{
+#ifdef USE_STORE_LOCK
+				std::shared_lock lk(g_storeMutex);
+#endif
+				auto it = g_postsById.find(id);
+				if (it != g_postsById.end())
+				{
+					postPtr = &const_cast<BlogPost&>(it->second);
+				}
+			}
+			if (!postPtr)
+			{
+				auto r = HttpResponse::newHttpResponse();
+				r->setStatusCode(k404NotFound);
+				cb(r); return;
+			}
+
+			// 首次访问生成静态页
+			std::string htmlFile;
+			if (!ensure_static_page(*postPtr, g_siteCfg, kPostTpl, &htmlFile))
+			{
+				auto r = HttpResponse::newHttpResponse();
+				r->setStatusCode(k500InternalServerError);
+				r->setContentTypeCode(CT_TEXT_PLAIN);
+				r->setBody("failed to materialize static page");
+				cb(r); return;
+			}
+
+			// 直接把生成的 index.html 返回（你也可以交给 nginx/静态托管）
+			std::string body;
+			if (!read_text_file(htmlFile, body))
+			{
+				auto r = HttpResponse::newHttpResponse();
+				r->setStatusCode(k500InternalServerError);
+				cb(r); return;
+			}
+			auto r = HttpResponse::newHttpResponse();
+			r->setStatusCode(k200OK);
+			r->setContentTypeString("text/html; charset=utf-8");
+			r->setBody(std::move(body));
+			cb(r);
+		},
+		{ Get }
+	);
 	// 4) 监听
 	app().addListener("0.0.0.0", 13400)
-		.setThreadNum(2)
+		.setThreadNum(1)
 		.run();
 	return 0;
 }
+
+ 

@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.2">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="FXAA 是一种后处理抗锯齿技术,依靠边缘检测来消除锯齿">
+<meta property="og:type" content="article">
+<meta property="og:title" content="FXAA">
+<meta property="og:url" content="http://example.com/posts/152da8b7/index.html">
+<meta property="og:site_name" content="xuezc&#39;s home">
+<meta property="og:description" content="FXAA 是一种后处理抗锯齿技术,依靠边缘检测来消除锯齿">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://example.com/images/fxaa4.png">
+<meta property="og:image" content="http://example.com/images/fxaa2.png">
+<meta property="og:image" content="http://example.com/images/fxaa1.png">
+<meta property="og:image" content="http://example.com/images/fxaa5.png">
+<meta property="og:image" content="http://example.com/images/fxaa3.png">
+<meta property="article:published_time" content="2023-05-28T03:02:00.000Z">
+<meta property="article:modified_time" content="2023-05-30T00:49:05.202Z">
+<meta property="article:author" content="xuezc">
+<meta property="article:tag" content="graph">
+<meta property="article:tag" content="opengl">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/images/fxaa4.png">
+
+<link rel="canonical" href="http://example.com/posts/152da8b7/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>FXAA | xuezc's home</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">xuezc's home</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">首页</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/posts/152da8b7/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="xuezc">
+      <meta itemprop="description" content="在这里，你会了解的更多，更透切">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="xuezc's home">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          FXAA
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2023-05-28 11:02:00" itemprop="dateCreated datePublished" datetime="2023-05-28T11:02:00+08:00">2023-05-28</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2023-05-30 08:49:05" itemprop="dateModified" datetime="2023-05-30T08:49:05+08:00">2023-05-30</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/opengl/" itemprop="url" rel="index"><span itemprop="name">opengl</span></a>
+                </span>
+            </span>
+
+          
+            <div class="post-description">FXAA 是一种后处理抗锯齿技术,依靠边缘检测来消除锯齿</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>FXAA3.11有两个版本，其中 Quality 版本是较注重抗锯齿质量的版本，Console 版本是较注重抗锯齿速度的版本.<br>这儿大致说一下Quality版本.</p>
+<h1 id="Luma"><a href="#Luma" class="headerlink" title="Luma"></a>Luma</h1><p>首先，我们先来计算当前处理的像素点和周围像素点的亮度对比值，FXAA 通过确定水平和垂直方向上像素点的亮度差，来计算对比值。当对比度值较大时，我们认为需要进行抗锯齿处理。</p>
+<p>求亮度可以使用常用的求亮度公式 L = 0.213 * R + 0.715 * G + 0.072 * B，也可以直接使用G分量的颜色值作为亮度值，因为绿色对整体亮度的贡献是最大的。</p>
+<h1 id="检测-AA-边缘"><a href="#检测-AA-边缘" class="headerlink" title="检测 AA 边缘"></a>检测 AA 边缘</h1><p>首先，我们先来计算当前处理的像素点和周围像素点的亮度对比值，FXAA 通过确定水平和垂直方向上像素点的亮度差，来计算对比值。当对比度值较大时，我们认为需要进行抗锯齿处理<br><img src="/images/fxaa4.png"></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">FxaaFloat lumaS = FxaaLuma(FxaaTexOff(tex, posM, FxaaInt2(0, 1), fxaaQualityRcpFrame.xy));</span><br><span class="line">FxaaFloat lumaE = FxaaLuma(FxaaTexOff(tex, posM, FxaaInt2(1, 0), fxaaQualityRcpFrame.xy));</span><br><span class="line">FxaaFloat lumaN = FxaaLuma(FxaaTexOff(tex, posM, FxaaInt2(0, -1), fxaaQualityRcpFrame.xy));</span><br><span class="line">FxaaFloat lumaW = FxaaLuma(FxaaTexOff(tex, posM, FxaaInt2(-1, 0), fxaaQualityRcpFrame.xy));</span><br><span class="line">   </span><br><span class="line">  FxaaFloat maxSM = max(lumaS, lumaM);</span><br><span class="line">FxaaFloat minSM = min(lumaS, lumaM);</span><br><span class="line">FxaaFloat maxESM = max(lumaE, maxSM);</span><br><span class="line">FxaaFloat minESM = min(lumaE, minSM);</span><br><span class="line">FxaaFloat maxWN = max(lumaN, lumaW);</span><br><span class="line">FxaaFloat minWN = min(lumaN, lumaW);</span><br><span class="line">FxaaFloat rangeMax = max(maxWN, maxESM);</span><br><span class="line">FxaaFloat rangeMin = min(minWN, minESM);</span><br><span class="line">FxaaFloat rangeMaxScaled = rangeMax * fxaaQualityEdgeThreshold;</span><br><span class="line">FxaaFloat range = rangeMax - rangeMin;</span><br><span class="line">FxaaFloat rangeMaxClamped = max(fxaaQualityEdgeThresholdMin, rangeMaxScaled);</span><br><span class="line">FxaaBool earlyExit = range &lt; rangeMaxClamped;</span><br></pre></td></tr></table></figure>
+<h1 id="基于亮度的混合"><a href="#基于亮度的混合" class="headerlink" title="基于亮度的混合"></a>基于亮度的混合</h1><p>通过计算目标像素和周围像素点的平均亮度的差值，我们来确定将来进行颜色混合时的权重。因为对角像素距离中心像素比较远，所以计算平均亮度值时的权重会略微低一些。<br><img src="/images/fxaa2.png"><br>混合因子可见:soble算子 <a target="_blank" rel="noopener" href="https://blog.sciencenet.cn/blog-425437-1139187.html">https://blog.sciencenet.cn/blog-425437-1139187.html</a></p>
+<figure class="highlight glsl"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line">FxaaFloat lumaNW = FxaaLuma(FxaaTexOff(tex, posM, FxaaInt2(<span class="number">-1</span>, <span class="number">-1</span>), fxaaQualityRcpFrame.xy));</span><br><span class="line">FxaaFloat lumaSE = FxaaLuma(FxaaTexOff(tex, posM, FxaaInt2(<span class="number">1</span>, <span class="number">1</span>), fxaaQualityRcpFrame.xy));</span><br><span class="line">FxaaFloat lumaNE = FxaaLuma(FxaaTexOff(tex, posM, FxaaInt2(<span class="number">1</span>, <span class="number">-1</span>), fxaaQualityRcpFrame.xy));</span><br><span class="line">FxaaFloat lumaSW = FxaaLuma(FxaaTexOff(tex, posM, FxaaInt2(<span class="number">-1</span>, <span class="number">1</span>), fxaaQualityRcpFrame.xy));</span><br><span class="line">   </span><br><span class="line">FxaaFloat lumaNS = lumaN + lumaS;</span><br><span class="line">FxaaFloat lumaWE = lumaW + lumaE;</span><br><span class="line">FxaaFloat subpixNSWE = lumaNS + lumaWE;</span><br><span class="line">FxaaFloat edgeHorz1 = (<span class="number">-2.0</span> * lumaM) + lumaNS;</span><br><span class="line">FxaaFloat edgeVert1 = (<span class="number">-2.0</span> * lumaM) + lumaWE;</span><br><span class="line">   </span><br><span class="line">FxaaFloat lumaNESE = lumaNE + lumaSE;</span><br><span class="line">FxaaFloat lumaNWNE = lumaNW + lumaNE;</span><br><span class="line">FxaaFloat edgeHorz2 = (<span class="number">-2.0</span> * lumaE) + lumaNESE;</span><br><span class="line">FxaaFloat edgeVert2 = (<span class="number">-2.0</span> * lumaN) + lumaNWNE;</span><br><span class="line">   </span><br><span class="line">FxaaFloat lumaNWSW = lumaNW + lumaSW;</span><br><span class="line">FxaaFloat lumaSWSE = lumaSW + lumaSE;</span><br><span class="line">FxaaFloat edgeHorz4 = (<span class="built_in">abs</span>(edgeHorz1) * <span class="number">2.0</span>) + <span class="built_in">abs</span>(edgeHorz2);</span><br><span class="line">FxaaFloat edgeVert4 = (<span class="built_in">abs</span>(edgeVert1) * <span class="number">2.0</span>) + <span class="built_in">abs</span>(edgeVert2);</span><br><span class="line">FxaaFloat edgeHorz3 = (<span class="number">-2.0</span> * lumaW) + lumaNWSW;</span><br><span class="line">FxaaFloat edgeVert3 = (<span class="number">-2.0</span> * lumaS) + lumaSWSE;</span><br><span class="line">FxaaFloat edgeHorz = <span class="built_in">abs</span>(edgeHorz3) + edgeHorz4;</span><br><span class="line">FxaaFloat edgeVert = <span class="built_in">abs</span>(edgeVert3) + edgeVert4;</span><br><span class="line">   </span><br><span class="line">FxaaFloat subpixNWSWNESE = lumaNWSW + lumaNESE;</span><br><span class="line">FxaaFloat lengthSign = fxaaQualityRcpFrame.x;</span><br><span class="line">FxaaBool horzSpan = edgeHorz &gt;= edgeVert;</span><br><span class="line">FxaaFloat subpixA = subpixNSWE * <span class="number">2.0</span> + subpixNWSWNESE;    </span><br><span class="line"><span class="comment">//计算出亮度差</span></span><br><span class="line"><span class="keyword">if</span>(!horzSpan) lumaN = lumaW;</span><br><span class="line"><span class="keyword">if</span>(!horzSpan) lumaS = lumaE;`</span><br><span class="line"><span class="keyword">if</span>(horzSpan) lengthSign = fxaaQualityRcpFrame.y;</span><br><span class="line">FxaaFloat subpixB = (subpixA * (<span class="number">1.0</span> / <span class="number">12.0</span>)) - lumaM;</span><br></pre></td></tr></table></figure>
+
+<h1 id="计算方向"><a href="#计算方向" class="headerlink" title="计算方向"></a>计算方向</h1><p>e.g.<br>以此举个例子说明每一步<br><img src="/images/fxaa1.png"><br>horizontal = |-2x0+0+1| + 2x|-2x0+0+1| + |-2x0+1+0| = 4  <br>vertical = |-2x0+0+0| + 2x|-2x1+1+1| + |-2x0+0+0| = 0<br>horizontal &gt; vertical,所以是水平边缘.</p>
+<figure class="highlight glsl"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">  <span class="comment">//subpixC 亮度比值</span></span><br><span class="line">FxaaFloat gradientN = lumaN - lumaM;</span><br><span class="line">FxaaFloat gradientS = lumaS - lumaM;</span><br><span class="line">FxaaFloat lumaNN = lumaN + lumaM;</span><br><span class="line">FxaaFloat lumaSS = lumaS + lumaM;</span><br><span class="line">FxaaBool pairN = <span class="built_in">abs</span>(gradientN) &gt;= <span class="built_in">abs</span>(gradientS);</span><br><span class="line">FxaaFloat gradient = <span class="built_in">max</span>(<span class="built_in">abs</span>(gradientN), <span class="built_in">abs</span>(gradientS));</span><br><span class="line"><span class="keyword">if</span>(pairN) lengthSign = -lengthSign;</span><br><span class="line">  FxaaFloat subpixRcpRange = <span class="number">1.0</span> / range;</span><br><span class="line">FxaaFloat subpixC = FxaaSat(<span class="built_in">abs</span>(subpixB) * subpixRcpRange);</span><br><span class="line">   </span><br><span class="line">FxaaFloat2 posB;</span><br><span class="line">posB.x = posM.x;</span><br><span class="line">posB.y = posM.y;</span><br><span class="line">FxaaFloat2 offNP;</span><br><span class="line">offNP.x = (!horzSpan) ? <span class="number">0.0</span> : fxaaQualityRcpFrame.x;</span><br><span class="line">offNP.y = (horzSpan) ? <span class="number">0.0</span> : fxaaQualityRcpFrame.y;</span><br><span class="line"><span class="keyword">if</span>(!horzSpan) posB.x += lengthSign * <span class="number">0.5</span>;</span><br><span class="line"><span class="keyword">if</span>(horzSpan) posB.y += lengthSign * <span class="number">0.5</span>;</span><br><span class="line"><span class="comment">//subpixE 计算平滑亮度差    </span></span><br><span class="line">FxaaFloat2 posN;</span><br><span class="line">posN.x = posB.x - offNP.x * FXAA_QUALITY__P0;</span><br><span class="line">posN.y = posB.y - offNP.y * FXAA_QUALITY__P0;</span><br><span class="line">FxaaFloat2 posP;</span><br><span class="line">posP.x = posB.x + offNP.x * FXAA_QUALITY__P0;</span><br><span class="line">posP.y = posB.y + offNP.y * FXAA_QUALITY__P0;</span><br><span class="line">FxaaFloat subpixD = ((<span class="number">-2.0</span>) * subpixC) + <span class="number">3.0</span>;</span><br><span class="line">FxaaFloat lumaEndN = FxaaLuma(FxaaTexTop(tex, posN));</span><br><span class="line">FxaaFloat subpixE = subpixC * subpixC;</span><br><span class="line">FxaaFloat lumaEndP = FxaaLuma(FxaaTexTop(tex, posP));    </span><br></pre></td></tr></table></figure>
+<h1 id="找到边界点"><a href="#找到边界点" class="headerlink" title="找到边界点"></a>找到边界点</h1><p>上述在我们的例子中,开始水平混合.<br>gradientN从w开始往左查找,s向右查找.<br>个人观点:大部分说0.25 x gradient的0.25是经验值.分析,s-n如果都看做中心点,s-n是4个半个像素.lumaEndN -= lumaNN * 0.5;这个差值看做2个end半像素-1个nn半像素,就是半个像素..所以0.25是线性相关的,并不是经验值.  </p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">if(!pairN) lumaNN = lumaSS;</span><br><span class="line">  //梯度</span><br><span class="line">FxaaFloat gradientScaled = gradient * 1.0 / 4.0;</span><br><span class="line">FxaaFloat lumaMM = lumaM - lumaNN * 0.5;</span><br><span class="line">FxaaFloat subpixF = subpixD * subpixE;</span><br><span class="line">FxaaBool lumaMLTZero = lumaMM &lt; 0.0;</span><br><span class="line">   </span><br><span class="line">lumaEndN -= lumaNN * 0.5;</span><br><span class="line">lumaEndP -= lumaNN * 0.5;</span><br><span class="line">FxaaBool doneN = abs(lumaEndN) &gt;= gradientScaled;</span><br><span class="line">FxaaBool doneP = abs(lumaEndP) &gt;= gradientScaled;</span><br><span class="line">if(!doneN) posN.x -= offNP.x * FXAA_QUALITY__P1;</span><br><span class="line">if(!doneN) posN.y -= offNP.y * FXAA_QUALITY__P1;</span><br><span class="line">FxaaBool doneNP = (!doneN) || (!doneP);</span><br><span class="line">if(!doneP) posP.x += offNP.x * FXAA_QUALITY__P1;</span><br><span class="line">if(!doneP) posP.y += offNP.y * FXAA_QUALITY__P1; </span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">FxaaBool pairN = abs(gradientN) &gt;= abs(gradientS)</span><br><span class="line">if(pairN) lengthSign = -lengthSign;</span><br></pre></td></tr></table></figure>
+<p>后面的代码就是迭代的过程了,循环找到开始点和结束点.<br>e.g.<br>最后我们找到了开始2个点,结束4个点<br><img src="/images/fxaa5.png"></p>
+<h1 id="混合"><a href="#混合" class="headerlink" title="混合"></a>混合</h1><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">FxaaFloat dstN = posM.x - posN.x;</span><br><span class="line">FxaaFloat dstP = posP.x - posM.x;</span><br><span class="line">if(!horzSpan) dstN = posM.y - posN.y;</span><br><span class="line">if(!horzSpan) dstP = posP.y - posM.y;</span><br><span class="line">   </span><br><span class="line">FxaaBool goodSpanN = (lumaEndN &lt; 0.0) != lumaMLTZero;</span><br><span class="line">FxaaFloat spanLength = (dstP + dstN);</span><br><span class="line">FxaaBool goodSpanP = (lumaEndP &lt; 0.0) != lumaMLTZero;</span><br><span class="line">FxaaFloat spanLengthRcp = 1.0 / spanLength;</span><br><span class="line">   </span><br><span class="line">FxaaBool directionN = dstN &lt; dstP;</span><br><span class="line">FxaaFloat dst = min(dstN, dstP);</span><br><span class="line">FxaaBool goodSpan = directionN ? goodSpanN : goodSpanP;</span><br><span class="line">FxaaFloat subpixG = subpixF * subpixF;</span><br><span class="line">FxaaFloat pixelOffset = (dst * (-spanLengthRcp)) + 0.5;</span><br><span class="line">FxaaFloat subpixH = subpixG * fxaaQualitySubpix;</span><br><span class="line">   </span><br><span class="line">FxaaFloat pixelOffsetGood = goodSpan ? pixelOffset : 0.0;</span><br><span class="line">FxaaFloat pixelOffsetSubpix = max(pixelOffsetGood, subpixH);</span><br><span class="line">if(!horzSpan) posM.x += pixelOffsetSubpix * lengthSign;</span><br><span class="line">if(horzSpan) posM.y += pixelOffsetSubpix * lengthSign;  </span><br><span class="line">//返回像素</span><br><span class="line">return FxaaFloat4(FxaaTexTop(tex, posM).xyz, lumaM);    </span><br></pre></td></tr></table></figure>
+
+<p>e.g.对于示例像素   </p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">pixelOffset = FxaaFloat dst = min(dstN, dstP) = 2</span><br><span class="line">spanLength = 6</span><br><span class="line">FxaaFloat pixelOffset = (dst * (-spanLengthRcp)) + 0.5 = -2/6+0.5 = 0.1666</span><br></pre></td></tr></table></figure>
+<p>下面给出所有的混合系数<br><img src="/images/fxaa3.png"></p>
+<h1 id="子像素抗锯齿"><a href="#子像素抗锯齿" class="headerlink" title="子像素抗锯齿"></a>子像素抗锯齿</h1><p>当栅格化后的物体小于一像素时，就产生了子像素失真。子像素失真最常见于非常细小的物体，例如场景中的塔尖、电话线或电线，甚至是距离屏幕足够远的一把剑。虽然这类失真也可以算是几何失真的一种，但在抗锯齿算法的设计中需要被特殊对待.</p>
+<p>这些情况下，平均亮度是在3x3邻域上计算的。在从中减去中心亮度并除以第一步的亮度范围后，就得到了一个子像素偏移。与整个邻域的范围相比，平均值和中心值之间的对比度差越小，则区域越均匀(即没有单个像素点)，偏移量越小。然后对这个偏移量进行细化，我们保留上一步和这一步中较大的偏移量。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">	//NVIDIA给出的子像素偏移</span><br><span class="line">	// Only used on FXAA Quality.</span><br><span class="line">	// This used to be the FXAA_QUALITY__SUBPIX define.</span><br><span class="line">	// It is here now to allow easier tuning.</span><br><span class="line">	// Choose the amount of sub-pixel aliasing removal.</span><br><span class="line">	// This can effect sharpness.</span><br><span class="line">	//   1.00 - upper limit (softer)</span><br><span class="line">	//   0.75 - default amount of filtering</span><br><span class="line">	//   0.50 - lower limit (sharper, less sub-pixel aliasing removal)</span><br><span class="line">	//   0.25 - almost off</span><br><span class="line">	//   0.00 - completely off</span><br><span class="line">	FxaaFloat fxaaQualitySubpix,</span><br><span class="line">    </span><br><span class="line">FxaaFloat subpixG = subpixF * subpixF;</span><br><span class="line">FxaaFloat subpixH = subpixG * fxaaQualitySubpix;</span><br></pre></td></tr></table></figure>
+
+<p>补充个知识点,glsl中的平滑函数为它.</p>
+<figure class="highlight glsl"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">float</span> <span class="built_in">smoothstep</span>(<span class="type">float</span> edge0, <span class="type">float</span> edge1, <span class="type">float</span> x)</span><br><span class="line">&#123;</span><br><span class="line"><span class="type">float</span> t = <span class="built_in">clamp</span>((x - edge0) / (edge1 - edge0),<span class="number">0.0</span>,<span class="number">1.0</span>);</span><br><span class="line"><span class="keyword">return</span> t * t * (<span class="number">3.0</span> <span class="number">-2.0</span> * t);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>e.g. 当SUBPIXEL_QUALITY = 0.75.上述中求子像素梯度为</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">subpixA = 2*(1+0+0+0)+1+1+0+0);</span><br><span class="line">subpixB = (subpixA * (1.0 / 12.0)) - lumaM = 4/12 = 0.33;</span><br><span class="line">FxaaFloat subpixC = FxaaSat(abs(subpixB) * subpixRcpRange);</span><br><span class="line">FxaaFloat subpixD = ((-2.0) * subpixC) + 3.0;</span><br><span class="line">FxaaFloat subpixE = subpixC * subpixC;</span><br><span class="line">//平滑处理函数</span><br><span class="line">FxaaFloat subpixF = subpixD * subpixE;</span><br><span class="line"></span><br><span class="line">FxaaFloat subpixG = subpixF * subpixF;</span><br><span class="line">FxaaFloat subpixH = subpixG * fxaaQualitySubpix =  0.75*((-2*0.333+3.0)*(0.3333)^2)^2 = 0.0503</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>所以此例子不进行子像素抗锯齿</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/graph/" rel="tag"># graph</a>
+              <a href="/tags/opengl/" rel="tag"># opengl</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/posts/f84f1a62/" rel="prev" title="实时阴影">
+      <i class="fa fa-chevron-left"></i> 实时阴影
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/posts/a36a2e33/" rel="next" title="blender_drw_command">
+      blender_drw_command <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Luma"><span class="nav-number">1.</span> <span class="nav-text">Luma</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%A3%80%E6%B5%8B-AA-%E8%BE%B9%E7%BC%98"><span class="nav-number">2.</span> <span class="nav-text">检测 AA 边缘</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%9F%BA%E4%BA%8E%E4%BA%AE%E5%BA%A6%E7%9A%84%E6%B7%B7%E5%90%88"><span class="nav-number">3.</span> <span class="nav-text">基于亮度的混合</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%AE%A1%E7%AE%97%E6%96%B9%E5%90%91"><span class="nav-number">4.</span> <span class="nav-text">计算方向</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%89%BE%E5%88%B0%E8%BE%B9%E7%95%8C%E7%82%B9"><span class="nav-number">5.</span> <span class="nav-text">找到边界点</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E6%B7%B7%E5%90%88"><span class="nav-number">6.</span> <span class="nav-text">混合</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#%E5%AD%90%E5%83%8F%E7%B4%A0%E6%8A%97%E9%94%AF%E9%BD%BF"><span class="nav-number">7.</span> <span class="nav-text">子像素抗锯齿</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">xuezc</p>
+  <div class="site-description" itemprop="description">在这里，你会了解的更多，更透切</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">44</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">20</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">29</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://xuezchuang.github.io/" title="GitHub → https:&#x2F;&#x2F;xuezchuang.github.io&#x2F;" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/categories" title="分类 → categories"><i class=" fa-fw"></i>分类</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/tags/git" title="git → tags&#x2F;git"><i class="fa git fa-fw"></i>git</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/tags/hexo" title="hexo → tags&#x2F;hexo"><i class=" fa-fw"></i>hexo</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/tags/opengl" title="opengl → tags&#x2F;opengl"><i class=" fa-fw"></i>opengl</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/tags/dx12" title="dx12 → tags&#x2F;dx12"><i class=" fa-fw"></i>dx12</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/tags/graph" title="graph → tags&#x2F;graph"><i class=" fa-fw"></i>graph</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/tags/blender" title="blender → tags&#x2F;blender"><i class=" fa-fw"></i>blender</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2024</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">xuezc</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

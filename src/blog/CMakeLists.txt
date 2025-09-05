@@ -42,7 +42,7 @@ if (TEMPLATE_FILES)
 endif()
 
 # 运行时常量：程序优先从运行目录的 templates/ 找模板
-target_compile_definitions(hexo PRIVATE POST_TEMPLATE_PATH_RUNTIME="templates/post.html.tpl")
+target_compile_definitions(hexo PRIVATE POST_TEMPLATE_PATH_RUNTIME="templates/post.html")
 
 # 平台上的“目录链接”命令（Win 用 junction 免管理员，*nix 用 symlink）
 if (WIN32)

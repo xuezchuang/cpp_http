@@ -23,6 +23,7 @@ static void md4c_out(const MD_CHAR* data, MD_SIZE size, void* ud)
 }
 #endif
 
+
 // ====== 基本配置 ======
 static const std::string kDocRoot = "./public";       // 线上站点静态文件
 static const std::string kAdminRoot = "./hexo-admin/www";   // hexo-admin 前端
@@ -32,6 +33,7 @@ static const std::string kAdminToken = "changeme-token"; // 简单令牌（建�
 static const fs::path kSourceRoot = "/root/cpp_http/src/src/blog/content";
 static const fs::path kDraftsDir = kSourceRoot / "_drafts";
 static const std::string kSiteURL = "http://example.com/";
+static std::mutex g_postsMutex;
 
 struct BlogPost  {
 	std::string id;
@@ -46,6 +48,8 @@ struct BlogPost  {
 	std::string date_iso;
 	size_t      size{ 0 };
 	bool needsRebuild{false}; 
+	bool publish{false}; 
+	bool draft{ true };
 };
 
 // —— 全局内存库 ——
@@ -107,40 +111,6 @@ static std::string now_iso_z()
 	oss << std::put_time(&tm, "%Y-%m-%dT%H:%M:%S") << "."
 		<< std::setw(3) << std::setfill('0') << ms.count() << "Z";
 	return oss.str();
-}
-static std::string slugify(const std::string& in)
-{
-	std::string s;
-	s.reserve(in.size());
-	for (unsigned char c : in)
-	{
-		if (c >= 'A' && c <= 'Z') c = char(c - 'A' + 'a');
-		if (c == ' ' || c == '\t' || c == '\n') c = '-';
-		if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-')
-			s.push_back(char(c));
-		else if (c == '_') s.push_back('-');
-		// 其它字符忽略
-	}
-	// 压缩多余的 '-'
-	std::string out;
-	out.reserve(s.size());
-	bool lastDash = false;
-	for (char ch : s)
-	{
-		if (ch == '-')
-		{
-			if (!lastDash) out.push_back('-');
-			lastDash = true;
-		}
-		else
-		{
-			out.push_back(ch);
-			lastDash = false;
-		}
-	}
-	if (!out.empty() && out.back() == '-') out.pop_back();
-	if (out.empty()) out = "post";
-	return out;
 }
 static inline bool starts_with(const std::string& s, const std::string& p)
 {
@@ -375,7 +345,7 @@ static inline void ensure_code_class(std::string& html)
 		if (pos != std::string::npos)
 		{
 			pos += 5; // 跳过 "<code"
-			tag.insert(pos, R"( class="language-plaintext")");
+			tag.insert(pos, R"( class="highlight plaintext")");
 		}
 		out += tag;
 
@@ -387,71 +357,63 @@ static inline void ensure_code_class(std::string& html)
 	html.swap(out);
 }
 
-// 把 <pre><code class="language-xxx">...</code></pre>
-// 包装成 NexT 风格：highlight-container + figure.highlight + copy-btn
+// 幂等：跳过已处理的 <pre>，并为新处理的 <pre> 打标记
 static inline void wrap_codeblocks_next(std::string& html)
 {
-	// 只处理“尚未被包装”的简单代码块；尽量宽松匹配换行/空白
-	// m[1]: code 的属性串；m[2]: 代码内容
+	// 仅匹配未打标记的 <pre><code>…</code></pre>
 	static const std::regex re(
-		R"(<pre\b[^>]*>\s*<code\b([^>]*)>([\s\S]*?)</code>\s*</pre>)",
+		R"(<pre(?![^>]*\bdata-copy-wrapped\b)[^>]*>\s*<code\b([^>]*)>([\s\S]*?)</code>\s*</pre>)",
 		std::regex::icase
 	);
 
 	std::string out;
 	out.reserve(html.size() * 11 / 10);
 
-	std::sregex_iterator it(html.begin(), html.end(), re);
-	std::sregex_iterator end;
-
+	std::sregex_iterator it(html.begin(), html.end(), re), end;
 	size_t last = 0;
+
 	for (; it != end; ++it)
 	{
 		const auto& m = *it;
+		const size_t start = static_cast<size_t>(m.position());
 
-		// 避免二次包装：如果匹配片段前面 200 个字符内已经出现 highlight-container，跳过
-		size_t start = static_cast<size_t>(m.position());
-		size_t guard = (start > 200 ? start - 200 : 0);
-		std::string_view prefix(html.data() + guard, start - guard);
-		if (prefix.find("highlight-container") != std::string_view::npos)
+		// 额外保护：匹配片段里若已含 container / copy-btn，则跳过
 		{
-			continue;
+			std::string_view seg(html.data() + start, static_cast<size_t>(m.length()));
+			if (seg.find("highlight-container") != std::string_view::npos ||
+				seg.find("copy-btn") != std::string_view::npos)
+			{
+				continue;
+			}
 		}
 
-		// 取 code 的属性，找 language-xxx
 		std::string codeAttr = m[1].str();
 		std::string inner = m[2].str();
 
 		std::string lang = "plaintext";
 		{
-			static const std::regex reLang(R"(language-([A-Za-z0-9_+-]+))", std::regex::icase);
+			static const std::regex reLang(R"(highlight ([A-Za-z0-9_+-]+))", std::regex::icase);
 			std::smatch lm;
 			if (std::regex_search(codeAttr, lm, reLang) && lm.size() >= 2)
-			{
 				lang = lm[1].str();
-			}
-			else
-			{
-				// 若没找到，顺带把 class 补上（稳妥）
-				if (codeAttr.find("class=") == std::string::npos)
-				{
-					codeAttr += R"( class="language-plaintext")";
-				}
-			}
+			else if (codeAttr.find("class=") == std::string::npos)
+				codeAttr += R"( class="highlight plaintext")";
 		}
 
-		// 拼接替换
 		out.append(html, last, start - last);
+
+		// 只包一层，并给 <pre> 打标记
 		out += "<div class=\"highlight-container\">";
-		out += "<figure class=\"highlight " + lang + "\">";
-		// 保留原来的 <pre><code ...> ... </code></pre> 结构，最大限度兼容样式与行高亮
-		out += "<pre><code" + codeAttr + ">" + inner + "</code></pre>";
-		out += "</figure>";
+		//out += "<figure class=\"highlight " + lang + "\">";
+		out += "<pre data-copy-wrapped=\"1\"><code" + codeAttr + ">" + inner + "</code></pre>";
+		//out += "</figure>";
+		 
 		out += R"(<div class="copy-btn"><i class="fa fa-clipboard fa-fw"></i></div>)";
 		out += "</div>";
 
 		last = start + static_cast<size_t>(m.length());
 	}
+
 	out.append(html, last, std::string::npos);
 	html.swap(out);
 }
@@ -509,7 +471,7 @@ static std::string mdToHtml(const std::string& md)
 		// 1) 给 <code> 兜底 class
 		ensure_code_class(out);
 		// 2) 包成 NexT 的 highlight-container + copy-btn 结构
-		wrap_codeblocks_next(out);
+		//wrap_codeblocks_next(out);
 		return out;
 	}
 #endif
@@ -525,7 +487,6 @@ static const std::string& ensurePostHtml(BlogPost& post)
 	}
 	return post.html;
 }
-
 
 // 简易替换
 static inline void replace_all(std::string& s, const std::string& from, const std::string& to)
@@ -577,6 +538,220 @@ struct SiteConfig {
 	std::string authorAvatar;
 	std::string siteHost;
 };
+
+
+// 简单去标签（取纯文本，用于 slug 和 toc 文本）
+static inline std::string strip_tags(std::string s)
+{
+	static const std::regex re("<[^>]*>");
+	return std::regex_replace(s, re, "");
+}
+
+// 通用版：英文按 slug 规则；非 ASCII(如中文)原样保留；空白/标点 → '-'；合并多余 '-'
+static std::string slugify(const std::string& in)
+{
+	std::string s; s.reserve(in.size());
+	auto is_ascii = [](unsigned char c) { return c < 128; };
+	auto is_alnum = [](unsigned char c)
+		{
+			return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+		};
+
+	// 1) 逐字节处理：ASCII 规则化，非 ASCII 直接保留（UTF-8）
+	for (size_t i = 0; i < in.size();)
+	{
+		unsigned char c = (unsigned char)in[i];
+		if (is_ascii(c))
+		{
+			if (is_alnum(c))
+			{
+				s.push_back((char)std::tolower(c));
+			}
+			else if (c == '_' || c == '-' || std::isspace(c))
+			{
+				s.push_back('-'); // 空白/下划线/短横统一成 '-'
+			}
+			else
+			{
+				// 其它 ASCII 标点丢弃为分隔符
+				s.push_back('-');
+			}
+			++i;
+		}
+		else
+		{
+			// 复制一个完整的 UTF-8 代码点（2~4 字节）
+			int len = 1;
+			if ((c & 0xE0) == 0xC0) len = 2;
+			else if ((c & 0xF0) == 0xE0) len = 3;
+			else if ((c & 0xF8) == 0xF0) len = 4;
+			s.append(in, i, (size_t)len);
+			i += (size_t)len;
+		}
+	}
+
+	// 2) 合并多余 '-'，去首尾 '-'
+	std::string out; out.reserve(s.size());
+	bool lastDash = false;
+	for (size_t i = 0; i < s.size();)
+	{
+		unsigned char c = (unsigned char)s[i];
+		if (c == '-')
+		{
+			if (!lastDash) out.push_back('-');
+			lastDash = true;
+			++i;
+		}
+		else
+		{
+			// 复制 UTF-8 代码点或单字节
+			if (c < 128)
+			{
+				out.push_back((char)c);
+				++i;
+			}
+			else
+			{
+				int len = 1;
+				if ((c & 0xE0) == 0xC0) len = 2;
+				else if ((c & 0xF0) == 0xE0) len = 3;
+				else if ((c & 0xF8) == 0xF0) len = 4;
+				out.append(s, i, (size_t)len);
+				i += (size_t)len;
+			}
+			lastDash = false;
+		}
+	}
+	while (!out.empty() && out.front() == '-') out.erase(out.begin());
+	while (!out.empty() && out.back() == '-')  out.pop_back();
+	if (out.empty()) out = "section";
+	return out;
+}
+
+
+struct TocItem { int level; std::string text; std::string id; };
+
+static inline void generate_toc(std::string& html, std::string& toc_html)
+{
+	static const std::regex reh(R"(<h([1-6])\b([^>]*)>([\s\S]*?)</h\1>)", std::regex::icase);
+	static const std::regex re_id(R"delim(\bid\s*=\s*"([^"]*)")delim", std::regex::icase);
+
+	std::vector<TocItem> items;
+	std::unordered_map<std::string, int> used;
+
+	std::string out; out.reserve(html.size() * 11 / 10);
+	size_t last = 0;
+
+	for (std::sregex_iterator it(html.begin(), html.end(), reh), end; it != end; ++it)
+	{
+		const auto& m = *it;
+		size_t start = (size_t)m.position();
+		size_t len = (size_t)m.length();
+
+		int lvl = std::stoi(m[1].str());       // ← 标题层级（不是编号）
+		std::string attrs = m[2].str();
+		std::string inner = m[3].str();
+
+		// 取或生成 id
+		std::smatch idm; std::string id;
+		if (std::regex_search(attrs, idm, re_id) && idm.size() >= 2)
+		{
+			id = idm[1].str();
+		}
+		else
+		{
+			std::string text = strip_tags(inner);
+			id = slugify(text);
+			int n = used[id]++; if (n > 0) id += "-" + std::to_string(n);
+			if (attrs.find("id=") == std::string::npos)
+			{
+				if (attrs.empty() || attrs.back() != ' ') attrs.push_back(' ');
+				attrs += "id=\"" + id + "\"";
+			}
+		}
+
+		items.push_back(TocItem{ lvl, strip_tags(inner), id });
+
+		// 回写带 id 的 <hN>
+		out.append(html, last, start - last);
+		out += "<h" + std::to_string(lvl) + " " + attrs + ">";
+		out += inner;
+		out += "</h" + std::to_string(lvl) + ">";
+		last = start + len;
+	}
+	out.append(html, last, std::string::npos);
+	html.swap(out);
+
+	if (items.empty()) { toc_html.clear(); return; }
+
+	// ===== 正确编号：按最顶层开始（通常是最小的那个级别） =====
+	int base = items[0].level;
+	for (auto& it : items) if (it.level < base) base = it.level;
+
+	int counters[7] = { 0 }; // 1..6 有效
+	auto make_number = [&](int L)
+		{
+			counters[L]++;                         // 当前层级 +1
+			for (int j = L + 1; j <= 6; ++j)       // 更深层级清零
+				counters[j] = 0;
+
+			std::string num;
+			for (int j = base; j <= L; ++j)
+			{
+				if (counters[j] == 0) continue;
+				if (!num.empty()) num.push_back('.');
+				num += std::to_string(counters[j]);
+			}
+			return num + "."; // NexT 的样式里尾部通常有个点
+		};
+
+	// 扁平 <ol>，用 nav-level-* 控制缩进（NexT 样式认这个）
+	std::string toc; toc.reserve(items.size() * 80);
+	toc += "<ol class=\"nav\">";
+	for (auto& it : items)
+	{
+		int L = it.level;
+		std::string number = make_number(L);
+
+		toc += "<li class=\"nav-item nav-level-" + std::to_string(L) + "\">";
+		toc += "<a class=\"nav-link\" href=\"#" + it.id + "\">";
+		toc += "<span class=\"nav-number\">" + number + "</span> ";
+		toc += "<span class=\"nav-text\">" + it.text + "</span>";
+		toc += "</a>";
+		toc += "</li>";
+	}
+	toc += "</ol>";
+
+	toc_html.swap(toc);
+}
+
+
+// 把 toc_html 塞到模板里的第一个 <div class="post-toc ...">…</div> 中
+static inline void inject_toc(std::string& page_html, const std::string& toc_html)
+{
+	// 匹配：<div class="post-toc ...">……</div>   （非贪婪）
+	static const std::regex re(
+		R"(<div\s+class="post-toc\b[^"]*"\s*>([\s\S]*?)</div>)",
+		std::regex::icase
+	);
+	std::smatch m;
+	if (std::regex_search(page_html, m, re))
+	{
+		// 组装替换：保留开头 <div ...>，中间换成 toc_html，结尾 </div>
+		std::string prefix = page_html.substr(0, (size_t)m.position());
+		// 找到开头标签结束位置
+		size_t open_end = page_html.find('>', (size_t)m.position());
+		std::string open_tag = page_html.substr((size_t)m.position(), open_end - (size_t)m.position() + 1);
+		std::string suffix = page_html.substr((size_t)m.position() + (size_t)m.length());
+		page_html = prefix + open_tag + toc_html + "</div>" + suffix;
+	}
+	else
+	{
+		// 找不到容器：兜底——在侧栏末尾插入
+		page_html += "\n<!-- TOC (auto) -->\n<div class=\"post-toc\">" + toc_html + "</div>\n";
+	}
+}
+
 
 // 读取模板
 static bool read_text_file(const std::string& path, std::string& out)
@@ -684,13 +859,25 @@ static bool ensure_static_page(BlogPost& post,
 		return true;
 	}
 
-	// 2) 懒渲染 + 落盘
+	// 1) 渲染正文 HTML（从 markdown -> HTML）
 	ensurePostHtml(post);
+	
+	// 2) 代码块包装（影响正文 HTML）
+	wrap_codeblocks_next(post.html);
 
+	// 3) 生成 TOC：会顺带给 <h1~h6> 补 id（修改 post.html 本身）
+	std::string toc_html;
+	generate_toc(post.html, toc_html);
+
+	// 4) 读模板 & 渲染整页（把 post.html 填进模板，得到整页 page）
 	std::string tpl;
 	if (!read_text_file(tplPath, tpl)) return false;
 	std::string page = render_post_html(post, cfg, tpl);
 
+	// 5) 把 TOC 注入整页（替换模板里的 <div class="post-toc">…</div>）
+	inject_toc(page, toc_html);
+
+	// 6) 落盘（原子写）
 	std::filesystem::create_directories(dir, ec);
 	// 原子写：先写临时文件再 rename，避免半包文件被读到
 	const std::string tmp = file + ".tmp";
@@ -1048,6 +1235,8 @@ bool initPosts()
 
 			// 先构造 BlogPost，解析 front-matter 直接写入 post 字段
 			BlogPost p;
+			p.draft = false;
+			p.publish = true;
 			p.raw = md;  // 保留原文
 			std::string body; // 如需用到正文，可接住
 			parse_front_matter(p.raw, p); // 会填充 p.id(若存在 abbrlink/id)、title/desc/tags/categories
@@ -1131,6 +1320,130 @@ static void collect_tags_categories(Json::Value& cats, Json::Value& tags)
 		tags[tagName] = tagName;
 	}
 }
+
+static const fs::path CONTENT_ROOT = fs::current_path() / "content";
+
+static inline fs::path absPathFromRel(const std::string& relPath)
+{
+	return fs::weakly_canonical(CONTENT_ROOT / relPath);
+}
+
+static drogon::HttpResponsePtr jsonError(int code, const std::string& msg)
+{
+	Json::Value j;
+	j["ok"] = false;
+	j["error"] = msg;
+	auto resp = drogon::HttpResponse::newHttpJsonResponse(j);
+	resp->setStatusCode(static_cast<drogon::HttpStatusCode>(code));
+	return resp;
+}
+
+static drogon::HttpResponsePtr jsonOk(const Json::Value& payload)
+{
+	Json::Value j = payload;
+	j["ok"] = true;
+	auto resp = drogon::HttpResponse::newHttpJsonResponse(j);
+	resp->setStatusCode(drogon::k200OK);
+	return resp;
+}
+
+static std::string moveRelPathBetween(const std::string& relPath,
+	const std::string& fromDir, // "_drafts/"
+	const std::string& toDir)   // "_posts/"
+{
+	// 基于当前 relPath 替换前缀
+	if (!starts_with(relPath, fromDir))
+		return {}; // 表示方向不合法
+
+	std::string tail = relPath.substr(fromDir.size()); // 去掉前缀后的部分
+	return toDir + tail; // 保持文件名不变
+}
+
+static drogon::HttpResponsePtr doMoveAndUpdate(BlogPost& post,
+	const std::string& fromDir,
+	const std::string& toDir)
+{
+	// 计算新旧路径
+	const std::string& rel = fromDir + post.relPath;
+	auto newRel = toDir + post.relPath;
+
+	fs::path src = absPathFromRel(rel);
+	fs::path dst = absPathFromRel(newRel);
+
+	// 基础存在性检查
+	if (!fs::exists(src))
+	{
+		return jsonError(404, "源文件不存在: " + src.string());
+	}
+	if (fs::exists(dst))
+	{
+		// 目标已存在，返回冲突。你也可以改成自动加后缀避免冲突。
+		return jsonError(409, "目标已存在: " + dst.string());
+	}
+
+	// 确保目标父目录存在
+	try
+	{
+		fs::create_directories(dst.parent_path());
+	}
+	catch (const std::exception& e)
+	{
+		return jsonError(500, std::string("创建目录失败: ") + e.what());
+	}
+
+	// 执行移动（重命名）
+	try
+	{
+		fs::rename(src, dst);
+	}
+	catch (const std::exception& e)
+	{
+		return jsonError(500, std::string("移动文件失败: ") + e.what());
+	}
+
+	// 更新内存对象
+	//post.relPath = newRel;
+	post.needsRebuild = true; // 提示后续重建
+
+	Json::Value payload;
+	payload["id"] = post.id;
+	payload["published"] = post.publish;
+	payload["isDraft"] = post.draft;
+
+	return jsonOk(payload);
+}
+
+static void handlePublish(const drogon::HttpRequestPtr& req, std::function<void(const drogon::HttpResponsePtr&)>&& cb,const std::string& id)
+{
+	std::lock_guard<std::mutex> lk(g_postsMutex);
+	auto it = g_postsById.find(id);
+	if (it == g_postsById.end())
+	{
+		cb(jsonError(404, "未找到文章 id=" + id));
+		return;
+	}
+	auto& post = it->second;
+	post.draft = false;
+	post.publish = true;
+	cb(doMoveAndUpdate(post, "_drafts/", "_posts/"));
+}
+
+static void handleUnpublish(const drogon::HttpRequestPtr& req,std::function<void(const drogon::HttpResponsePtr&)>&& cb,const std::string& id)
+{
+
+	std::lock_guard<std::mutex> lk(g_postsMutex);
+	auto it = g_postsById.find(id);
+	if (it == g_postsById.end())
+	{
+		cb(jsonError(404, "未找到文章 id=" + id));
+		return;
+	}
+	auto& post = it->second;
+	post.draft = true;
+	post.publish = false;
+	cb(doMoveAndUpdate(post, "_posts/", "_drafts/"));
+}
+
 // ====== 主程序 ======
 int main()
 {
@@ -1401,8 +1714,8 @@ int main()
 				p["title"] = post.title;
 				p["date"] = post.date_iso;
 				p["abbrlink"] = post.id;
-				p["published"] = true;
-				p["isDraft"] = false;
+				p["published"] = post.publish;
+				p["isDraft"] = post.draft;
 				p["isDiscarded"] = false;
 
 				   
@@ -1528,7 +1841,9 @@ int main()
 			cb(resp);
 		}, { Get });
 
-	app().registerHandler("/admin/api/tags-categories-and-metadata",[](const HttpRequestPtr& req, std::function<void(const HttpResponsePtr&)>&& cb)
+	app().registerHandler(
+		"/admin/api/tags-categories-and-metadata",
+		[](const HttpRequestPtr& req, std::function<void(const HttpResponsePtr&)>&& cb)
 		{
 			Json::Value root;
 			root["categories"] = Json::Value(Json::objectValue);
@@ -1551,7 +1866,8 @@ int main()
 			auto resp = HttpResponse::newHttpJsonResponse(root);
 			resp->setStatusCode(k200OK);
 			cb(resp);
-		},{ Get });
+		},
+		{ Get });
 
 	app().registerHandler(
 		"/admin/api/posts/{1}",
@@ -1589,8 +1905,8 @@ int main()
 				p["title"] = post.title.empty() ? "Untitled" : post.title;
 				p["date"] = post.date_iso.empty() ? "1970-01-01T00:00:00.000Z" : post.date_iso;
 				p["abbrlink"] = post.id;
-				p["published"] = true;
-				p["isDraft"] = false;
+				p["published"] = post.publish;
+				p["isDraft"] = post.draft;
 				p["isDiscarded"] = false;
 				p["_id"] = post.id;
 				p["path"] = "posts/" + post.id + "/";
@@ -1752,6 +2068,14 @@ int main()
 		{ Get,Post }
 	);
 
+	//app().registerHandler(
+	//	"/admin/api/posts/{1}/unpublish",
+	//	[](const HttpRequestPtr& req, std::function<void(const HttpResponsePtr&)>&& cb)
+	//	{
+	//	},
+	//	{ Post }
+	//);
+
 	app().registerHandler(
 		"/admin/api/posts/new",
 		[](const HttpRequestPtr& req, std::function<void(const HttpResponsePtr&)>&& cb)
@@ -1808,7 +2132,7 @@ int main()
 			// 5) 同步写入内存（草稿期用 _id 做 key；relPath 放在 _drafts 下）
 			BlogPost post;
 			post.id = _id;                             // ⚠️ 草稿期主键 = _id；发布时改成 abbrlink
-			post.relPath = (fs::path("_drafts") / (slug + ".md")).generic_string();
+			post.relPath = slug + ".md";
 			post.title = title;
 			post.description.clear();
 			post.categories.clear();
@@ -1836,7 +2160,7 @@ int main()
 			out["source"] = (fs::path("_drafts") / (slug + ".md")).generic_string();
 			out["raw"] = fm.str();
 			out["slug"] = slug;
-			out["published"] = false;
+			out["published"] = post.publish;
 			out["date"] = nowIso;
 			out["updated"] = nowIso;
 			out["comments"] = true;
@@ -1850,7 +2174,7 @@ int main()
 			out["asset_dir"] = (kDraftsDir / slug).generic_string() + "/"; // 末尾 /
 			out["tags"] = Json::Value(Json::arrayValue);
 			out["categories"] = Json::Value(Json::arrayValue);
-			out["isDraft"] = true;
+			out["isDraft"] = post.draft;
 			out["isDiscarded"] = false;
 
 
@@ -1867,9 +2191,28 @@ int main()
 		{ Post }
 	);
 
+	app().registerHandler(
+		"/admin/api/posts/{1}/publish",
+		[](const HttpRequestPtr& req, std::function<void(const HttpResponsePtr&)>&& cb,const std::string& id)
+		{
+			handlePublish(req, std::move(cb),id);
+		},
+		{ Post }
+	);
+
+	// POST /admin/api/posts/{id}/unpublish
+	app().registerHandler(
+		"/admin/api/posts/{1}/unpublish",
+		[](const HttpRequestPtr& req, std::function<void(const HttpResponsePtr&)>&& cb,const std::string& id)
+		{
+			handleUnpublish(req, std::move(cb),id);
+		},
+		{ Post }
+	);
+
 	// 模板文件路径
 #ifndef POST_TEMPLATE_PATH
-#define POST_TEMPLATE_PATH "templates/post.html.tpl" // 兜底
+#define POST_TEMPLATE_PATH "templates/post.html" // 兜底
 #endif
 
 	static const std::string kPostTpl = POST_TEMPLATE_PATH;
@@ -1934,3 +2277,4 @@ int main()
 }
 
  
+
